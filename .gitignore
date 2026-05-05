@@ -1,0 +1,19 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+.next
+.turbo
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+
+# Prisma
+packages/db/src/generated
