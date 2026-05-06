@@ -1,0 +1,511 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// Only used for things that will NEVER change.
+// Business-managed lists (courses, sources) = tables, not enums.
+// ─────────────────────────────────────────
+
+enum Role {
+  EMPLOYEE
+  SUB_ADMIN
+  ADMIN
+}
+
+enum LeadStatus {
+  NEW
+  ATTEMPTED_CONTACT
+  CONNECTED
+  INTERESTED
+  FOLLOW_UP_SCHEDULED
+  APPLICATION_SENT
+  UNDER_VALIDATION
+  CONFIRMED
+  LOST
+  NOT_INTERESTED
+  NOT_REACHABLE
+  DUPLICATE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+}
+
+enum QualificationLevel {
+  TENTH
+  TWELFTH
+  GRADUATION
+  POST_GRADUATION
+  OTHER
+}
+
+enum InteractionType {
+  NOTE
+  CALL
+  EMAIL
+  SMS
+  MEETING
+  DOCUMENT_UPLOADED
+  STATUS_CHANGED
+}
+
+// ─────────────────────────────────────────
+// BRANCH
+// Physical office. One now (Bokaro Steel City).
+// Multi-branch ready from day one.
+// ─────────────────────────────────────────
+
+model Branch {
+  id        String   @id @default(cuid())
+  name      String
+  city      String
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  leads Lead[]
+}
+
+// ─────────────────────────────────────────
+// USER
+// All roles live here. Role field controls access.
+// Password stored as bcrypt hash, never plaintext.
+// ─────────────────────────────────────────
+
+model User {
+  id           String  @id @default(cuid())
+  name         String
+  email        String  @unique
+  phone        String?
+  passwordHash String
+  role         Role    @default(EMPLOYEE)
+  isActive     Boolean @default(true)
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedLeads   Lead[]              @relation("AssignedTo")
+  createdLeads    Lead[]              @relation("CreatedBy")
+  interactions    InteractionLog[]
+  assignmentsMade AssignmentHistory[] @relation("AssignedBy")
+  auditLogs       AuditLog[]
+
+  @@index([email])
+  @@index([branchId])
+  @@index([role])
+}
+
+// ─────────────────────────────────────────
+// COURSE
+// Dynamic — admin adds/manages from dashboard.
+// Not an enum because business changes this frequently.
+// ─────────────────────────────────────────
+
+model Course {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String?  @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leadCourses LeadCourse[]
+}
+
+// ─────────────────────────────────────────
+// LEAD SOURCE TYPE
+// Dynamic — admin manages. Pre-seeded with 10 types.
+// Examples: Desk Enquiry, Meta Campaign, Teacher Reference
+// ─────────────────────────────────────────
+
+model LeadSourceType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  leads Lead[]
+}
+
+// ─────────────────────────────────────────
+// LEAD
+// Core entity. Created progressively — minimum
+// fields required at creation, rest filled later.
+// Most fields nullable by design.
+// ─────────────────────────────────────────
+
+model Lead {
+  id String @id @default(cuid())
+
+  // Minimum required at creation
+  studentName String
+  phone       String
+  fatherName  String?
+  dateOfBirth DateTime?
+
+  // Contact
+  alternatePhone String?
+  whatsappNumber String?
+  email          String?
+
+  // Demographics
+  gender        Gender?
+  maritalStatus MaritalStatus?
+
+  // Address
+  village  String?
+  sector   String?
+  city     String?
+  district String?
+  state    String?
+
+  // Academic — quick capture at enquiry stage
+  qualification    QualificationLevel?
+  schoolCollege    String?
+  boardUniversity  String?
+  passingYear      Int?
+  percentage       Float?
+  pcmPcbPercentage Float?
+
+  // Lead meta
+  sourceId    String?
+  source      LeadSourceType? @relation(fields: [sourceId], references: [id])
+  sourceOther String?
+  status      LeadStatus      @default(NEW)
+  purpose     String?
+  remarks     String?
+
+  // Follow-up scheduling
+  nextFollowUpAt DateTime?
+  sendSms        Boolean   @default(false)
+  sendEmail      Boolean   @default(false)
+
+  // Ownership
+  branchId     String
+  branch       Branch @relation(fields: [branchId], references: [id])
+  assignedToId String?
+  assignedTo   User?  @relation("AssignedTo", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User   @relation("CreatedBy", fields: [createdById], references: [id])
+
+  // Duplicate handling — self referential
+  // When duplicate detected: isDuplicate=true, duplicateOfId=original lead id
+  // Original lead gets a review comment noting the duplicate
+  isDuplicate   Boolean @default(false)
+  duplicateOfId String?
+  duplicateOf   Lead?   @relation("Duplicates", fields: [duplicateOfId], references: [id])
+  duplicates    Lead[]  @relation("Duplicates")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courses              LeadCourse[]
+  interactions         InteractionLog[]
+  assignments          AssignmentHistory[]
+  auditLogs            AuditLog[]
+  confirmedApplication ConfirmedApplication?
+
+  // Indexes — designed for your analytics queries
+  @@index([phone])          // duplicate detection
+  @@index([email])          // duplicate detection
+  @@index([status])         // filter by status
+  @@index([assignedToId])   // employee's own leads
+  @@index([branchId])       // branch filtering
+  @@index([createdAt])      // time-based analytics
+  @@index([sourceId])       // source breakdown reports
+  @@index([isDuplicate])    // filter real vs duplicate
+  @@index([nextFollowUpAt]) // follow-up dashboard
+}
+
+// ─────────────────────────────────────────
+// LEAD COURSE
+// Junction table — one lead, many courses
+// isPrimary flags the main course of interest
+// ─────────────────────────────────────────
+
+model LeadCourse {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id])
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([leadId, courseId])
+  @@index([leadId])
+  @@index([courseId])
+}
+
+// ─────────────────────────────────────────
+// INTERACTION LOG
+// The feedback / review system.
+// Append-only: rows are NEVER deleted.
+// Employees can edit — original note preserved (Option B).
+// One row = one feedback entry.
+// Infinite entries per lead, per stage.
+// ─────────────────────────────────────────
+
+model InteractionLog {
+  id     String          @id @default(cuid())
+  leadId String
+  lead   Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId String
+  user   User            @relation(fields: [userId], references: [id])
+  type   InteractionType
+
+  // The feedback / review content
+  note String?
+
+  // Call data — manual upload now, LMS calling in future
+  callRecordingUrl String?
+  callDurationSecs Int?
+  callDirection    String? // INBOUND | OUTBOUND — for future LMS calling feature
+
+  // Which stage this interaction happened at
+  statusBefore LeadStatus?
+  statusAfter  LeadStatus?
+
+  // Notification tracking
+  smsSent   Boolean @default(false)
+  emailSent Boolean @default(false)
+
+  // ── Option B: Edit with audit trail ──
+  // When employee edits a note:
+  // 1. originalNote = the first version (preserved forever)
+  // 2. note = updated version
+  // 3. isEdited = true
+  // 4. editedAt = timestamp of edit
+  isEdited     Boolean   @default(false)
+  editedAt     DateTime?
+  originalNote String?
+
+  // Soft delete — only ADMIN can trigger
+  // Row is never removed from DB
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedById String?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([type])
+  @@index([statusAfter]) // analytics: interactions per stage
+}
+
+// ─────────────────────────────────────────
+// ASSIGNMENT HISTORY
+// Every reassignment is logged permanently.
+// Who assigned, to whom, when, why.
+// ─────────────────────────────────────────
+
+model AssignmentHistory {
+  id           String   @id @default(cuid())
+  leadId       String
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User     @relation("AssignedBy", fields: [assignedById], references: [id])
+  assignedToId String?
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([leadId])
+  @@index([assignedById])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────
+// AUDIT LOG
+// System-generated. Records every significant
+// action automatically. Not user-written.
+// Stores old and new values as JSON for full diff.
+// ─────────────────────────────────────────
+
+model AuditLog {
+  id     String  @id @default(cuid())
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id])
+  userId String
+  user   User    @relation(fields: [userId], references: [id])
+
+  // What happened: LEAD_CREATED, STATUS_CHANGED, LEAD_ASSIGNED, etc.
+  action   String
+  oldValue Json?
+  newValue Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────
+// CONFIRMED APPLICATION
+// Only created when lead.status = CONFIRMED.
+// Full admission form data lives here.
+// Linked 1-to-1 with Lead.
+// ─────────────────────────────────────────
+
+model ConfirmedApplication {
+  id     String @id @default(cuid())
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Identity documents
+  aadharNo String?
+  apaarId  String? // Apaar / ABC ID
+
+  // Extended family background
+  motherName       String?
+  motherOccupation String?
+  motherIncome     Float?
+  fatherOccupation String?
+  fatherIncome     Float?
+  noOfSisters      Int?
+  noOfBrothers     Int?
+  nationality      String?
+  religion         String?
+  category         String?
+
+  // Addresses
+  permanentAddress     String?
+  permanentPhone       String?
+  localGuardianName    String?
+  localGuardianAddress String?
+  localGuardianPhone   String?
+
+  // Payment info from admission form
+  bookingAmount     Float?
+  bookingCashDDNo   String?
+  bookingBank       String?
+  bookingDate       DateTime?
+  admissionAmount   Float?
+  admissionCashDDNo String?
+  admissionBank     String?
+  admissionDate     DateTime?
+  duesAmount        Float?
+  dueDate           DateTime?
+
+  // Extras
+  extraCurricular String?
+  authorisedBy    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  academicRecords AcademicRecord[]
+  entranceExams   EntranceExamDetail[]
+  documents       LeadDocument[]
+}
+
+// ─────────────────────────────────────────
+// ACADEMIC RECORD
+// One row per education level.
+// Matric, Inter, Graduation, PG = 4 rows max.
+// Linked to ConfirmedApplication, not Lead directly.
+// ─────────────────────────────────────────
+
+model AcademicRecord {
+  id                     String               @id @default(cuid())
+  confirmedApplicationId String
+  confirmedApplication   ConfirmedApplication @relation(fields: [confirmedApplicationId], references: [id], onDelete: Cascade)
+
+  level       QualificationLevel
+  stream      String?
+  institution String?
+  board       String?
+  passingYear Int?
+  percentage  Float?
+  grade       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([confirmedApplicationId])
+}
+
+// ─────────────────────────────────────────
+// ENTRANCE EXAM DETAIL
+// JEE, NEET etc. Multiple per student.
+// ─────────────────────────────────────────
+
+model EntranceExamDetail {
+  id                     String               @id @default(cuid())
+  confirmedApplicationId String
+  confirmedApplication   ConfirmedApplication @relation(fields: [confirmedApplicationId], references: [id], onDelete: Cascade)
+
+  examName String
+  rollNo   String?
+  score    String?
+  rank     Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([confirmedApplicationId])
+}
+
+// ─────────────────────────────────────────
+// DOCUMENT TYPE
+// Dynamic — admin manages.
+// Pre-seeded: Marksheet, ID Proof, Photo.
+// isRequired flags mandatory documents.
+// ─────────────────────────────────────────
+
+model DocumentType {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  isRequired Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  documents LeadDocument[]
+}
+
+// ─────────────────────────────────────────
+// LEAD DOCUMENT
+// Files uploaded per confirmed application.
+// fileUrl = Supabase Storage URL.
+// Verified by SUB_ADMIN or ADMIN.
+// ─────────────────────────────────────────
+
+model LeadDocument {
+  id                     String               @id @default(cuid())
+  confirmedApplicationId String
+  confirmedApplication   ConfirmedApplication @relation(fields: [confirmedApplicationId], references: [id], onDelete: Cascade)
+  documentTypeId         String
+  documentType           DocumentType         @relation(fields: [documentTypeId], references: [id])
+
+  fileUrl    String
+  fileName   String
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+  verifiedBy String?
+
+  uploadedAt DateTime @default(now())
+
+  @@index([confirmedApplicationId])
+  @@index([documentTypeId])
+}
