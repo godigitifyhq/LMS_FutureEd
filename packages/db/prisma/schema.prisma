@@ -8,9 +8,7 @@ datasource db {
 }
 
 // ─────────────────────────────────────────
-// ENUMS
-// Only used for things that will NEVER change.
-// Business-managed lists (courses, sources) = tables, not enums.
+// ENUMS — Only for values that never change
 // ─────────────────────────────────────────
 
 enum Role {
@@ -65,8 +63,8 @@ enum InteractionType {
 
 // ─────────────────────────────────────────
 // BRANCH
-// Physical office. One now (Bokaro Steel City).
-// Multi-branch ready from day one.
+// Physical office location.
+// One now (Bokaro), multi-branch ready.
 // ─────────────────────────────────────────
 
 model Branch {
@@ -84,8 +82,8 @@ model Branch {
 
 // ─────────────────────────────────────────
 // USER
-// All roles live here. Role field controls access.
-// Password stored as bcrypt hash, never plaintext.
+// All roles live in one table.
+// Password always stored as bcrypt hash.
 // ─────────────────────────────────────────
 
 model User {
@@ -103,21 +101,24 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  assignedLeads   Lead[]              @relation("AssignedTo")
-  createdLeads    Lead[]              @relation("CreatedBy")
-  interactions    InteractionLog[]
-  assignmentsMade AssignmentHistory[] @relation("AssignedBy")
-  auditLogs       AuditLog[]
+  // Relations
+  assignedLeads    Lead[]              @relation("AssignedTo")
+  createdLeads     Lead[]              @relation("CreatedBy")
+  interactions     InteractionLog[]
+  interactionEdits InteractionLogEdit[]
+  assignmentsMade  AssignmentHistory[] @relation("AssignedBy")
+  auditLogs        AuditLog[]
 
   @@index([email])
   @@index([branchId])
   @@index([role])
+  @@index([isActive])
 }
 
 // ─────────────────────────────────────────
 // COURSE
 // Dynamic — admin adds/manages from dashboard.
-// Not an enum because business changes this frequently.
+// Not an enum because business changes this often.
 // ─────────────────────────────────────────
 
 model Course {
@@ -134,8 +135,8 @@ model Course {
 
 // ─────────────────────────────────────────
 // LEAD SOURCE TYPE
-// Dynamic — admin manages. Pre-seeded with 10 types.
-// Examples: Desk Enquiry, Meta Campaign, Teacher Reference
+// Dynamic — admin manages.
+// Pre-seeded with 10 types from your list.
 // ─────────────────────────────────────────
 
 model LeadSourceType {
@@ -149,9 +150,9 @@ model LeadSourceType {
 
 // ─────────────────────────────────────────
 // LEAD
-// Core entity. Created progressively — minimum
-// fields required at creation, rest filled later.
-// Most fields nullable by design.
+// Core entity. Created progressively.
+// Minimum fields at creation: name + phone.
+// Everything else filled as relationship builds.
 // ─────────────────────────────────────────
 
 model Lead {
@@ -179,7 +180,7 @@ model Lead {
   district String?
   state    String?
 
-  // Academic — quick capture at enquiry stage
+  // Academic — quick capture at enquiry stage only
   qualification    QualificationLevel?
   schoolCollege    String?
   boardUniversity  String?
@@ -195,7 +196,7 @@ model Lead {
   purpose     String?
   remarks     String?
 
-  // Follow-up scheduling
+  // Follow-up
   nextFollowUpAt DateTime?
   sendSms        Boolean   @default(false)
   sendEmail      Boolean   @default(false)
@@ -209,8 +210,10 @@ model Lead {
   createdBy    User   @relation("CreatedBy", fields: [createdById], references: [id])
 
   // Duplicate handling — self referential
-  // When duplicate detected: isDuplicate=true, duplicateOfId=original lead id
-  // Original lead gets a review comment noting the duplicate
+  // When duplicate detected:
+  //   isDuplicate = true
+  //   duplicateOfId = original lead id
+  //   InteractionLog entry added to original lead noting the duplicate
   isDuplicate   Boolean @default(false)
   duplicateOfId String?
   duplicateOf   Lead?   @relation("Duplicates", fields: [duplicateOfId], references: [id])
@@ -219,28 +222,29 @@ model Lead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
   courses              LeadCourse[]
   interactions         InteractionLog[]
   assignments          AssignmentHistory[]
   auditLogs            AuditLog[]
   confirmedApplication ConfirmedApplication?
 
-  // Indexes — designed for your analytics queries
-  @@index([phone])          // duplicate detection
-  @@index([email])          // duplicate detection
-  @@index([status])         // filter by status
-  @@index([assignedToId])   // employee's own leads
-  @@index([branchId])       // branch filtering
-  @@index([createdAt])      // time-based analytics
-  @@index([sourceId])       // source breakdown reports
-  @@index([isDuplicate])    // filter real vs duplicate
-  @@index([nextFollowUpAt]) // follow-up dashboard
+  // Indexes — every analytics query covered
+  @@index([phone])           // duplicate detection
+  @@index([email])           // duplicate detection
+  @@index([status])          // filter by pipeline stage
+  @@index([assignedToId])    // employee sees own leads
+  @@index([branchId])        // branch-level reports
+  @@index([createdAt])       // time-based analytics
+  @@index([sourceId])        // lead source breakdown
+  @@index([isDuplicate])     // filter real vs duplicate
+  @@index([nextFollowUpAt])  // follow-up dashboard
 }
 
 // ─────────────────────────────────────────
 // LEAD COURSE
-// Junction table — one lead, many courses
-// isPrimary flags the main course of interest
+// Many-to-many: one lead, many courses.
+// isPrimary = main course of interest.
 // ─────────────────────────────────────────
 
 model LeadCourse {
@@ -259,11 +263,12 @@ model LeadCourse {
 
 // ─────────────────────────────────────────
 // INTERACTION LOG
-// The feedback / review system.
-// Append-only: rows are NEVER deleted.
-// Employees can edit — original note preserved (Option B).
-// One row = one feedback entry.
-// Infinite entries per lead, per stage.
+// The feedback/review system.
+// ONE ROW = ONE FEEDBACK ENTRY.
+// Infinite entries per lead per stage.
+// Rows are NEVER hard deleted.
+// Employees: add + edit own entries only.
+// Admins: soft delete only.
 // ─────────────────────────────────────────
 
 model InteractionLog {
@@ -274,15 +279,17 @@ model InteractionLog {
   user   User            @relation(fields: [userId], references: [id])
   type   InteractionType
 
-  // The feedback / review content
+  // Current note — always the latest version
   note String?
 
-  // Call data — manual upload now, LMS calling in future
+  // Call data
+  // Now: employee manually uploads recording URL
+  // Future: calls happen from LMS (Exotel/Twilio)
   callRecordingUrl String?
   callDurationSecs Int?
-  callDirection    String? // INBOUND | OUTBOUND — for future LMS calling feature
+  callDirection    String? // INBOUND | OUTBOUND — for future LMS calling
 
-  // Which stage this interaction happened at
+  // Stage context — what status was lead in during this interaction
   statusBefore LeadStatus?
   statusAfter  LeadStatus?
 
@@ -290,35 +297,57 @@ model InteractionLog {
   smsSent   Boolean @default(false)
   emailSent Boolean @default(false)
 
-  // ── Option B: Edit with audit trail ──
-  // When employee edits a note:
-  // 1. originalNote = the first version (preserved forever)
-  // 2. note = updated version
-  // 3. isEdited = true
-  // 4. editedAt = timestamp of edit
-  isEdited     Boolean   @default(false)
-  editedAt     DateTime?
-  originalNote String?
+  // Edit tracking — quick flag
+  // Full history lives in InteractionLogEdit
+  isEdited Boolean @default(false)
 
-  // Soft delete — only ADMIN can trigger
-  // Row is never removed from DB
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
+  // Soft delete — only ADMIN can trigger, never hard delete
+  isDeleted   Boolean   @default(false)
+  deletedAt   DateTime?
   deletedById String?
 
   createdAt DateTime @default(now())
+
+  // Full edit history — Option B
+  editHistory InteractionLogEdit[]
 
   @@index([leadId])
   @@index([userId])
   @@index([createdAt])
   @@index([type])
-  @@index([statusAfter]) // analytics: interactions per stage
+  @@index([statusAfter])
+  @@index([isDeleted])
+}
+
+// ─────────────────────────────────────────
+// INTERACTION LOG EDIT
+// Every edit to a note is stored here.
+// noteBefore = what it said before this edit
+// noteAfter  = what it was changed to
+// Full version history — nothing ever lost.
+// ─────────────────────────────────────────
+
+model InteractionLogEdit {
+  id               String         @id @default(cuid())
+  interactionLogId String
+  interactionLog   InteractionLog @relation(fields: [interactionLogId], references: [id], onDelete: Cascade)
+
+  editedById String
+  editedBy   User   @relation(fields: [editedById], references: [id])
+
+  noteBefore String
+  noteAfter  String
+
+  editedAt DateTime @default(now())
+
+  @@index([interactionLogId])
+  @@index([editedAt])
 }
 
 // ─────────────────────────────────────────
 // ASSIGNMENT HISTORY
-// Every reassignment is logged permanently.
-// Who assigned, to whom, when, why.
+// Every reassignment permanently logged.
+// Only SUB_ADMIN and ADMIN can reassign.
 // ─────────────────────────────────────────
 
 model AssignmentHistory {
@@ -338,9 +367,9 @@ model AssignmentHistory {
 
 // ─────────────────────────────────────────
 // AUDIT LOG
-// System-generated. Records every significant
-// action automatically. Not user-written.
-// Stores old and new values as JSON for full diff.
+// System-generated. Never user-written.
+// Captures every significant action automatically.
+// Old + new values stored as JSON for full diff.
 // ─────────────────────────────────────────
 
 model AuditLog {
@@ -350,8 +379,7 @@ model AuditLog {
   userId String
   user   User    @relation(fields: [userId], references: [id])
 
-  // What happened: LEAD_CREATED, STATUS_CHANGED, LEAD_ASSIGNED, etc.
-  action   String
+  action   String  // LEAD_CREATED, STATUS_CHANGED, LEAD_ASSIGNED, etc.
   oldValue Json?
   newValue Json?
 
@@ -365,9 +393,11 @@ model AuditLog {
 
 // ─────────────────────────────────────────
 // CONFIRMED APPLICATION
-// Only created when lead.status = CONFIRMED.
+// Created ONLY when lead.status = CONFIRMED.
 // Full admission form data lives here.
-// Linked 1-to-1 with Lead.
+// 1-to-1 with Lead.
+// Aadhar + Apaar ID collected here.
+// This is what gets exported as PDF.
 // ─────────────────────────────────────────
 
 model ConfirmedApplication {
@@ -375,11 +405,11 @@ model ConfirmedApplication {
   leadId String @unique
   lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  // Identity documents
+  // Identity
   aadharNo String?
   apaarId  String? // Apaar / ABC ID
 
-  // Extended family background
+  // Family background
   motherName       String?
   motherOccupation String?
   motherIncome     Float?
@@ -398,7 +428,7 @@ model ConfirmedApplication {
   localGuardianAddress String?
   localGuardianPhone   String?
 
-  // Payment info from admission form
+  // Payment info
   bookingAmount     Float?
   bookingCashDDNo   String?
   bookingBank       String?
@@ -424,9 +454,9 @@ model ConfirmedApplication {
 
 // ─────────────────────────────────────────
 // ACADEMIC RECORD
-// One row per education level.
-// Matric, Inter, Graduation, PG = 4 rows max.
-// Linked to ConfirmedApplication, not Lead directly.
+// One row per education level per student.
+// Max 4 rows: Matric, Inter, Graduation, PG.
+// Lives under ConfirmedApplication, not Lead.
 // ─────────────────────────────────────────
 
 model AcademicRecord {
@@ -450,6 +480,7 @@ model AcademicRecord {
 // ─────────────────────────────────────────
 // ENTRANCE EXAM DETAIL
 // JEE, NEET etc. Multiple per student.
+// Lives under ConfirmedApplication.
 // ─────────────────────────────────────────
 
 model EntranceExamDetail {
@@ -471,7 +502,7 @@ model EntranceExamDetail {
 // DOCUMENT TYPE
 // Dynamic — admin manages.
 // Pre-seeded: Marksheet, ID Proof, Photo.
-// isRequired flags mandatory documents.
+// isRequired = must be uploaded before confirmation.
 // ─────────────────────────────────────────
 
 model DocumentType {
@@ -486,9 +517,9 @@ model DocumentType {
 
 // ─────────────────────────────────────────
 // LEAD DOCUMENT
-// Files uploaded per confirmed application.
+// Files per confirmed application.
 // fileUrl = Supabase Storage URL.
-// Verified by SUB_ADMIN or ADMIN.
+// Verified by SUB_ADMIN or ADMIN only.
 // ─────────────────────────────────────────
 
 model LeadDocument {
