@@ -56,3 +56,12 @@ export function canManageConfirmedApplication(
 export function canViewAnalytics(user: AuthUser): boolean {
   return user.role === Role.SUB_ADMIN || user.role === Role.ADMIN
 }
+
+// ─────────────────────────────────────────
+// Who can import leads via Excel/CSV?
+// SUB_ADMIN and ADMIN only.
+// Employee cannot bulk import.
+// ─────────────────────────────────────────
+export function canImportLeads(user: AuthUser): boolean {
+  return user.role === Role.SUB_ADMIN || user.role === Role.ADMIN
+}

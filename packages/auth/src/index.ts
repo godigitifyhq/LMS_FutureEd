@@ -1,6 +1,5 @@
-﻿// @lms/auth - RBAC permission functions
-// Types
-export type { AuthUser, LeadOwnership, InteractionOwnership } from './types'
+﻿// Types
+export type { AuthUser, LeadOwnership, InteractionOwnership } from "./types";
 
 // Lead permissions
 export {
@@ -10,21 +9,21 @@ export {
   canTransitionLead,
   canAssignLead,
   canDeactivateLead,
-} from './permissions/lead'
+} from "./permissions/lead";
 
 // Interaction permissions
 export {
   canAddInteraction,
   canEditInteraction,
   canDeleteInteraction,
-} from './permissions/interaction'
+} from "./permissions/interaction";
 
 // User permissions
 export {
   canCreateUser,
   canUpdateUser,
   canDeactivateUser,
-} from './permissions/user'
+} from "./permissions/user";
 
 // Admin permissions
 export {
@@ -34,4 +33,5 @@ export {
   canUploadDocument,
   canManageConfirmedApplication,
   canViewAnalytics,
-} from './permissions/admin'
+  canImportLeads,
+} from "./permissions/admin";
