@@ -17,3 +17,4 @@ dist
 
 # Prisma
 packages/db/src/generated
+apps/api/uploads/

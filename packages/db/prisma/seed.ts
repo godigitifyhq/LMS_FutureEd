@@ -1,6 +1,7 @@
 import { PrismaClient } from "../src/generated/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
+import bcrypt from "bcrypt";
 import "dotenv/config";
 
 const pool = new pg.Pool({
@@ -24,14 +25,15 @@ async function main() {
     },
   });
 
-  // 2. Create admin user
+  const adminPasswordHash = await bcrypt.hash("Admin@FutureEd123", 12);
+
   await prisma.user.upsert({
     where: { email: "admin@futureeducation.in" },
-    update: {},
+    update: { passwordHash: adminPasswordHash }, // ← update too
     create: {
       name: "Admin",
       email: "admin@futureeducation.in",
-      passwordHash: "CHANGE_THIS_BEFORE_DEPLOY",
+      passwordHash: adminPasswordHash,
       role: "ADMIN",
       branchId: branch.id,
     },

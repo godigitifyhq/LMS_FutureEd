@@ -98,6 +98,9 @@ model User {
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
 
+  refreshTokens       RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -543,4 +546,45 @@ model LeadDocument {
 
   @@index([confirmedApplicationId])
   @@index([documentTypeId])
+}
+
+// ─────────────────────────────────────────
+// REFRESH TOKEN
+// One row per active device session.
+// Max 3 per user.
+// tokenHash = bcrypt of the actual token.
+// Raw token is NEVER stored.
+// lastUsedAt updated on every refresh.
+// Expires after 1 day of inactivity.
+// ─────────────────────────────────────────
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  deviceInfo String?
+  lastUsedAt DateTime @default(now())
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────
+// PASSWORD RESET TOKEN
+// Generated when: admin resets, forgot password
+// One-time use only (usedAt set after use)
+// Expires in 1 hour
+// ─────────────────────────────────────────
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
