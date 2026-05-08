@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import helmet from "@fastify/helmet";
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
-
+import multipart from "@fastify/multipart";
 import { config } from "./config";
 import { errorHandler } from "./errors/handler";
 import { prismaPlugin } from "./plugins/prisma";
@@ -32,6 +32,13 @@ export async function buildServer() {
   await fastify.register(cors, {
     origin: config.corsOrigin,
     credentials: true,
+  });
+
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB global limit
+      files: 1, // one file per request
+    },
   });
 
   // Rate limit — global default
