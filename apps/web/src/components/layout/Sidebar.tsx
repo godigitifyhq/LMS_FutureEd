@@ -61,7 +61,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     label: "Courses",
-    href: "/courses",
+    href: "/settings/courses",
     icon: GraduationCap,
     roles: [Role.ADMIN, Role.SUB_ADMIN],
   },
@@ -130,6 +130,8 @@ export function Sidebar({ onClose }: Props) {
               key={item.href}
               href={item.href}
               {...(onClose ? { onClick: onClose } : {})}
+              aria-label={collapsed ? item.label : undefined}
+              title={collapsed ? item.label : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
@@ -171,6 +173,7 @@ export function Sidebar({ onClose }: Props) {
           <button
             onClick={handleLogout}
             className="shrink-0 p-1.5 text-gray-400 hover:text-red-500 rounded transition-colors"
+            aria-label="Logout"
             title="Logout"
           >
             <LogOut size={16} />
@@ -182,6 +185,8 @@ export function Sidebar({ onClose }: Props) {
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="absolute -right-3 top-6 w-6 h-6 bg-white border border-surface-200 rounded-full flex items-center justify-center shadow-sm hover:bg-surface-50 transition-colors"
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {collapsed ? (
           <ChevronRight size={12} className="text-gray-500" />

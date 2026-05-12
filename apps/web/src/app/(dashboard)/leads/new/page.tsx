@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
+import axios from "axios";
 import api from "@/lib/api";
 import { useNotifications } from "@/store/notifications";
 import { useQuery } from "@tanstack/react-query";
@@ -136,7 +137,9 @@ export default function NewLeadPage() {
       if (form.alternatePhone) payload["alternatePhone"] = form.alternatePhone;
       if (form.whatsappNumber) payload["whatsappNumber"] = form.whatsappNumber;
       if (form.email) payload["email"] = form.email;
-      if (form.nextFollowUpAt) payload["nextFollowUpAt"] = form.nextFollowUpAt;
+      if (form.nextFollowUpAt) {
+        payload["nextFollowUpAt"] = new Date(form.nextFollowUpAt).toISOString();
+      }
       payload["sendEmail"] = form.sendEmail;
       if (revivalConfirm) payload["confirmRevival"] = true;
 
@@ -162,6 +165,29 @@ export default function NewLeadPage() {
       success("Lead created successfully");
       router.push(`/leads/${result.lead.id}`);
     } catch (e) {
+      if (axios.isAxiosError(e)) {
+        const details = e.response?.data?.details as
+          | Record<string, string[]>
+          | undefined;
+        if (details) {
+          const nextErrors: Record<string, string> = {};
+          const entries = Object.entries(details);
+          entries.forEach(([field, messages]) => {
+            if (messages[0]) nextErrors[field] = messages[0];
+          });
+          if (Object.keys(nextErrors).length > 0) {
+            setErrors((prev) => ({ ...prev, ...nextErrors }));
+            const [firstField, firstMessages] = entries[0] ?? [];
+            const firstMessage = firstMessages?.[0];
+            const label = (firstField ?? "").replace(/([A-Z])/g, " $1");
+            error(
+              "Validation error",
+              firstMessage ? `${label}: ${firstMessage}` : "Check the form",
+            );
+            return;
+          }
+        }
+      }
       error("Failed to create lead", extractApiError(e));
     } finally {
       setLoading(false);

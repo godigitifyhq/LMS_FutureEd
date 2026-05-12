@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { ComponentProps } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Search, RotateCcw, UserX, UserCheck, Key } from "lucide-react";
+import { Plus, Search, UserX, UserCheck, Key } from "lucide-react";
 import {
   useUsers,
   useDeactivateUser,
@@ -22,7 +22,6 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Role } from "@lms/types";
 import { getInitials, formatDate } from "@/lib/utils";
 import api from "@/lib/api";
-import { useNotifications } from "@/store/notifications";
 
 type BadgeVariant = NonNullable<ComponentProps<typeof Badge>["variant"]>;
 
@@ -54,7 +53,6 @@ type UserRow = {
 export default function UsersPage() {
   const { user } = useAuthStore();
   const router = useRouter();
-  const { error } = useNotifications();
 
   const [filters, setFilters] = useState({
     search: "",
@@ -226,7 +224,7 @@ export default function UsersPage() {
                       <tr key={u.id} className="hover:bg-surface-50">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
                               <span className="text-xs font-bold text-primary">
                                 {getInitials(u.name)}
                               </span>

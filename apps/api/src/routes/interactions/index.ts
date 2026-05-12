@@ -21,7 +21,7 @@ export async function interactionRoutes(
   // Get all interactions for a lead
   // ─────────────────────────────────────────
   fastify.get(
-    "/:leadId/interactions",
+    "/leads/:leadId/interactions",
     {
       preHandler: authenticate,
     },
@@ -134,7 +134,7 @@ export async function interactionRoutes(
   // Add interaction/feedback to a lead
   // ─────────────────────────────────────────
   fastify.post(
-    "/:leadId/interactions",
+    "/leads/:leadId/interactions",
     {
       preHandler: authenticate,
     },

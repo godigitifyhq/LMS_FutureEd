@@ -309,6 +309,87 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
     },
   );
 
+  // POST /leads/import
+  fastify.post(
+    "/import",
+    {
+      preHandler: [authenticate, authorize([Role.ADMIN, Role.SUB_ADMIN])],
+    },
+    async (request, reply) => {
+      const { rows } = request.body as {
+        rows: Array<{
+          rowIndex: number;
+          studentName: string;
+          phone: string;
+          email?: string | null;
+          fatherName?: string | null;
+          city?: string | null;
+          state?: string | null;
+        }>;
+      };
+
+      const { id: userId, branchId } = request.user;
+
+      // Get existing leads for duplicate check
+      const existingLeads = await fastify.prisma.lead.findMany({
+        where: {
+          OR: [
+            { phone: { in: rows.map((r) => r.phone).filter(Boolean) } },
+            {
+              email: {
+                in: rows.map((r) => r.email).filter(Boolean) as string[],
+              },
+            },
+          ],
+        },
+        select: {
+          id: true,
+          phone: true,
+          email: true,
+          status: true,
+          isDuplicate: true,
+          duplicateOfId: true,
+        },
+      });
+
+      const { processImportRows } = await import("@lms/core");
+      const result = processImportRows(rows as any, existingLeads as any);
+
+      // Create clean leads
+      const created = [];
+      for (const row of result.imported) {
+        try {
+          const lead = await fastify.prisma.lead.create({
+            data: {
+              studentName: row.studentName,
+              phone: row.phone,
+              email: (row as any).email ?? null,
+              fatherName: (row as any).fatherName ?? null,
+              city: (row as any).city ?? null,
+              state: (row as any).state ?? null,
+              branchId,
+              createdById: userId,
+              assignedToId: userId,
+              status: "NEW",
+            },
+          });
+          created.push(lead);
+        } catch {
+          /* skip individual failures */
+        }
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: {
+          imported: created,
+          duplicateQueue: result.duplicateQueue,
+          errors: result.errors,
+        },
+      });
+    },
+  );
+
   // PATCH /leads/:id/confirmed
   fastify.patch(
     "/:id/confirmed",
@@ -331,4 +412,20 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(updateLeadRoute);
   await fastify.register(transitionLeadRoute);
   await fastify.register(assignLeadRoute);
+}
+function authorize(
+  arg0: Role[],
+): import("fastify/types/route").RouteShorthandHook<
+  import("fastify").preHandlerHookHandler<
+    import("fastify").RawServerDefault,
+    import("node:http").IncomingMessage,
+    import("node:http").ServerResponse<import("node:http").IncomingMessage>,
+    import("fastify").RouteGenericInterface,
+    unknown,
+    NoInfer<import("fastify").FastifySchema>,
+    import("fastify").FastifyTypeProviderDefault,
+    import("fastify").FastifyBaseLogger
+  >
+> {
+  throw new Error("Function not implemented.");
 }
