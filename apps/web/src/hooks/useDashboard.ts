@@ -64,8 +64,8 @@ export function useSourceReport(period: Period) {
   });
 }
 
-// ── Follow-up compliance ──
-export function useFollowUpCompliance() {
+// ── Follow-up compliance (admin/sub-admin only) ──
+export function useFollowUpCompliance(enabled = true) {
   return useQuery({
     queryKey: ["analytics", "follow-ups"],
     queryFn: async () => {
@@ -73,6 +73,7 @@ export function useFollowUpCompliance() {
       return data.data;
     },
     refetchInterval: 5 * 60_000,
+    enabled,
   });
 }
 
@@ -108,6 +109,18 @@ export function useMyOverdueLeads() {
     queryKey: ["leads", "overdue", "mine"],
     queryFn: async () => {
       const { data } = await api.get<ApiResponse>(`/leads/overdue`);
+      return data.data;
+    },
+    refetchInterval: 5 * 60_000,
+  });
+}
+
+// ── Combined overdue + upcoming follow-ups (all roles) ──
+export function useMyFollowUps() {
+  return useQuery({
+    queryKey: ["leads", "followups"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiResponse>(`/leads/followups`);
       return data.data;
     },
     refetchInterval: 5 * 60_000,

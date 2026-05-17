@@ -19,6 +19,8 @@ export async function activityRoutes(fastify: FastifyInstance): Promise<void> {
     const where: Record<string, unknown> = { isDeleted: false };
 
     if (role === Role.EMPLOYEE) {
+      // Employee sees only their own interactions on their own leads
+      where["userId"] = userId;
       where["lead"] = {
         OR: [{ assignedToId: userId }, { createdById: userId }],
       };
