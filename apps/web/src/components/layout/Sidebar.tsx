@@ -10,6 +10,7 @@ import {
   BarChart3,
   Upload,
   GraduationCap,
+  Tag,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -32,16 +33,8 @@ type Props = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Leads",
-    href: "/leads",
-    icon: Users,
-  },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Leads", href: "/leads", icon: Users },
   {
     label: "Analytics",
     href: "/analytics",
@@ -60,17 +53,25 @@ const NAV_ITEMS: NavItem[] = [
     icon: Users,
     roles: [Role.ADMIN, Role.SUB_ADMIN],
   },
+  // SUB_ADMIN gets Courses in sidebar (no Settings access)
   {
     label: "Courses",
     href: "/settings/courses",
     icon: GraduationCap,
-    roles: [Role.ADMIN, Role.SUB_ADMIN],
+    roles: [Role.SUB_ADMIN], // ← SUB_ADMIN only in sidebar
   },
+  {
+    label: "Lead Sources",
+    href: "/settings/sources",
+    icon: Tag,
+    roles: [Role.SUB_ADMIN], // ← SUB_ADMIN only
+  },
+  // ADMIN has Settings which contains Courses inside
   {
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    roles: [Role.ADMIN],
+    roles: [Role.ADMIN], // ← ADMIN only
   },
 ];
 

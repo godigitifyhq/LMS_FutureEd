@@ -12,7 +12,7 @@ const SETTINGS_SECTIONS = [
     href: "/settings/courses",
     icon: BookOpen,
     label: "Courses",
-    description: "Manage available courses and programs",
+    description: "Manage programs and courses",
   },
   {
     href: "/settings/sources",
@@ -24,16 +24,17 @@ const SETTINGS_SECTIONS = [
     href: "/settings/documents",
     icon: FileText,
     label: "Document Types",
-    description: "Manage required document categories",
+    description: "Required document categories",
   },
   {
     href: "/settings/branches",
     icon: Building2,
     label: "Branches",
-    description: "Manage office locations",
+    description: "Office locations",
     adminOnly: true,
   },
 ];
+// No role restriction needed — only ADMIN can reach /settings from sidebar
 
 export default function SettingsPage() {
   const { user } = useAuthStore();

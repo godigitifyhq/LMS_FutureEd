@@ -108,6 +108,11 @@ export function buildLeadWhereClause(params: {
       { studentName: { contains: filters.search, mode: 'insensitive' } },
       { phone: { contains: filters.search } },
       { email: { contains: filters.search, mode: 'insensitive' } },
+      { fatherName:   { contains: filters.search, mode: 'insensitive' } },
+      { city:         { contains: filters.search, mode: 'insensitive' } },
+      { district:     { contains: filters.search, mode: 'insensitive' } },
+      { village:      { contains: filters.search, mode: 'insensitive' } },
+      { sector:       { contains: filters.search, mode: 'insensitive' } },
     ]
   }
 

@@ -72,9 +72,9 @@ export default function NewLeadPage() {
 
   // Fetch courses and sources
   const { data: courses } = useQuery({
-    queryKey: ["courses"],
+    queryKey: ["courses", "active"],
     queryFn: async () => {
-      const { data } = await api.get("/settings/courses");
+      const { data } = await api.get("/settings/courses?isActive=true"); // ← only active
       return data.data as Array<{ id: string; name: string }>;
     },
   });

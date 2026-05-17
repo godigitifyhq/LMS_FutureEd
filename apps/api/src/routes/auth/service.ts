@@ -111,6 +111,11 @@ export async function loginUser(params: {
     },
   });
 
+  try {
+    await fastify.redis.del(`user-logout:${user.id}`);
+    await fastify.redis.del(`notifs:${user.id}`);
+  } catch {}
+
   // Sign JWT access token
   const accessToken = fastify.jwt.sign({
     sub: user.id,
@@ -184,6 +189,10 @@ export async function refreshAccessToken(params: {
     branchId: storedToken.user.branchId,
     jti: crypto.randomUUID(), // ← add this
   });
+
+  try {
+    await (fastify as any).redis?.del(`user-logout:${storedToken.user.id}`);
+  } catch {}
 
   return { accessToken, refreshToken: newRawToken };
 }

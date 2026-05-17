@@ -7,12 +7,24 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
   const guard = [authenticate, authorize([Role.ADMIN, Role.SUB_ADMIN])];
 
   // Courses
-  fastify.get("/courses", { preHandler: authenticate }, async (_, reply) => {
-    const courses = await fastify.prisma.course.findMany({
-      orderBy: { createdAt: "asc" },
-    });
-    return reply.send({ success: true, data: courses });
-  });
+  fastify.get(
+    "/courses",
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const { isActive } = request.query as { isActive?: string };
+
+      const where: Record<string, unknown> = {};
+      if (isActive === "true") where["isActive"] = true;
+      if (isActive === "false") where["isActive"] = false;
+      // no param = return all (for settings page)
+
+      const courses = await fastify.prisma.course.findMany({
+        where,
+        orderBy: { name: "asc" },
+      });
+      return reply.send({ success: true, data: courses });
+    },
+  );
 
   fastify.post("/courses", { preHandler: guard }, async (request, reply) => {
     const body = request.body as {

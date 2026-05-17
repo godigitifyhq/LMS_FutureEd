@@ -121,6 +121,15 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     reply.setCookie("refreshToken", result.refreshToken, refreshCookieOptions);
 
+    try {
+      const decoded = fastify.jwt.decode(result.accessToken) as {
+        sub?: string;
+      } | null;
+      if (decoded?.sub) {
+        await fastify.redis.del(`user-logout:${decoded.sub}`);
+      }
+    } catch {}
+
     return reply.status(200).send({
       success: true,
       data: {
@@ -257,30 +266,28 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         where: { id: request.user.id },
       });
       if (!user)
-        return reply
-          .status(404)
-          .send({
-            success: false,
-            error: { code: "NOT_FOUND", message: "User not found" },
-          });
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "User not found" },
+        });
 
       const valid = await bcrypt.compare(currentPassword, user.passwordHash);
       if (!valid)
-        return reply
-          .status(400)
-          .send({
-            success: false,
-            error: {
-              code: "INVALID_CREDENTIALS",
-              message: "Current password is incorrect",
-            },
-          });
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: "Current password is incorrect",
+          },
+        });
 
       const newHash = await bcrypt.hash(newPassword, 12);
       await fastify.prisma.user.update({
         where: { id: user.id },
         data: { passwordHash: newHash },
       });
+
+      await fastify.redis.del(`user-logout:${user.id}`);
 
       return reply.send({
         success: true,

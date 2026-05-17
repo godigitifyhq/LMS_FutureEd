@@ -4,20 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
 import {
   Phone,
   MessageSquare,
   UserCheck,
   CheckCircle,
   AlertCircle,
-  Calendar,
+  CheckSquare,
 } from "lucide-react";
 import { StatusBadge } from "./StatusBadge";
 import { QuickNoteModal } from "./QuickNoteModal";
 import { QuickAssignModal } from "./QuickAssignModal";
-import api from "@/lib/api";
 import { useMarkFollowUpDone } from "@/hooks/useLeads";
 import { useAuthStore } from "@/store/auth";
 import { Role } from "@lms/types";
@@ -26,29 +23,29 @@ import { cn } from "@/lib/utils";
 
 dayjs.extend(relativeTime);
 
+type Props = {
+  leads: LeadSummary[];
+  // Optional bulk select props
+  selected?: Set<string>;
+  onToggle?: (id: string) => void;
+  showBulkSelect?: boolean;
+};
+
 type ActiveModal =
   | { type: "note"; lead: LeadSummary }
   | { type: "assign"; lead: LeadSummary }
   | null;
 
-export function LeadCards({ leads }: { leads: LeadSummary[] }) {
-  const qc = useQueryClient();
+export function LeadCards({
+  leads,
+  selected,
+  onToggle,
+  showBulkSelect,
+}: Props) {
   const { user } = useAuthStore();
   const isManager = user?.role === Role.ADMIN || user?.role === Role.SUB_ADMIN;
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+  const [modal, setModal] = useState<ActiveModal>(null);
   const markDone = useMarkFollowUpDone();
-  const setFollowUp = useMutation({
-    mutationFn: async (params: { leadId: string; nextFollowUpAt: string }) => {
-      await api.patch(`/leads/${params.leadId}`, {
-        nextFollowUpAt: params.nextFollowUpAt,
-      });
-    },
-    onSuccess: () => {
-      toast.success("Follow-up set");
-      void qc.invalidateQueries({ queryKey: ["leads"] });
-    },
-    onError: () => toast.error("Failed to set follow-up"),
-  });
 
   return (
     <>
@@ -57,6 +54,7 @@ export function LeadCards({ leads }: { leads: LeadSummary[] }) {
           const isOverdue =
             lead.nextFollowUpAt && new Date(lead.nextFollowUpAt) < new Date();
           const primaryCourse = lead.courses.find((c) => c.isPrimary);
+          const isChecked = selected?.has(lead.id) ?? false;
 
           return (
             <div
@@ -64,41 +62,50 @@ export function LeadCards({ leads }: { leads: LeadSummary[] }) {
               className={cn(
                 "bg-white rounded-xl border p-4 space-y-3 hover:shadow-sm transition-shadow",
                 isOverdue ? "border-red-200" : "border-surface-200",
+                isChecked ? "ring-2 ring-primary ring-offset-1" : "",
               )}
             >
-              {/* Header */}
-              <div className="flex items-start justify-between gap-2">
-                <Link href={`/leads/${lead.id}`}>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 hover:text-primary">
-                      {lead.studentName}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">{lead.phone}</p>
-                  </div>
+              {/* Header row */}
+              <div className="flex items-start gap-2">
+                {/* Bulk checkbox (mobile) */}
+                {showBulkSelect && isManager && (
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => onToggle?.(lead.id)}
+                    aria-label={`Select lead ${lead.studentName}`}
+                    title={`Select lead ${lead.studentName}`}
+                    className="accent-primary w-4 h-4 mt-0.5 flex-shrink-0"
+                  />
+                )}
+
+                <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 hover:text-primary truncate">
+                    {lead.studentName}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">{lead.phone}</p>
                 </Link>
+
                 <StatusBadge status={lead.status} size="sm" />
               </div>
 
-              {/* Details */}
-              <div className="space-y-1.5">
+              {/* Meta */}
+              <div className="space-y-1">
                 {primaryCourse && (
                   <p className="text-xs text-gray-500">
                     📚 {primaryCourse.course.name}
                   </p>
                 )}
-
                 {lead.assignedTo && isManager && (
                   <p className="text-xs text-gray-500">
                     👤 {lead.assignedTo.name}
                   </p>
                 )}
-
                 {!lead.assignedTo && isManager && (
                   <p className="text-xs text-amber-600 font-medium">
                     ⚠ Unassigned
                   </p>
                 )}
-
                 {lead.nextFollowUpAt && (
                   <p
                     className={cn(
@@ -110,70 +117,45 @@ export function LeadCards({ leads }: { leads: LeadSummary[] }) {
                     {dayjs(lead.nextFollowUpAt).fromNow()}
                   </p>
                 )}
-
                 {lead.isDuplicate && (
                   <p className="text-xs text-slate-500 flex items-center gap-1">
                     <AlertCircle size={10} />
-                    Duplicate lead
+                    Duplicate
                   </p>
                 )}
               </div>
 
-              {/* Actions */}
+              {/* Quick actions */}
               <div className="flex items-center gap-1 pt-1 border-t border-surface-100">
                 <a
                   href={`tel:${lead.phone}`}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-primary hover:bg-primary-50 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs text-gray-500 hover:text-primary hover:bg-primary-50"
                 >
-                  <Phone size={13} />
-                  Call
+                  <Phone size={13} /> Call
                 </a>
-
                 <button
-                  onClick={() => setActiveModal({ type: "note", lead })}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-primary hover:bg-primary-50 transition-colors"
+                  onClick={() => setModal({ type: "note", lead })}
+                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs text-gray-500 hover:text-primary hover:bg-primary-50"
                 >
-                  <MessageSquare size={13} />
-                  Note
+                  <MessageSquare size={13} /> Note
                 </button>
-
                 {isManager && (
                   <button
-                    onClick={() => setActiveModal({ type: "assign", lead })}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-primary hover:bg-primary-50 transition-colors"
+                    onClick={() => setModal({ type: "assign", lead })}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs text-gray-500 hover:text-primary hover:bg-primary-50"
                   >
-                    <UserCheck size={13} />
-                    Assign
+                    <UserCheck size={13} /> Assign
                   </button>
                 )}
-
                 {lead.nextFollowUpAt && (
                   <button
                     onClick={() =>
                       void markDone.mutateAsync({ leadId: lead.id })
                     }
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs text-gray-500 hover:text-green-600 hover:bg-green-50"
+                    title="Mark follow-up done"
                   >
-                    <CheckCircle size={13} />
-                    Done
-                  </button>
-                )}
-
-                {!lead.nextFollowUpAt && (
-                  <button
-                    onClick={() => {
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      tomorrow.setHours(10, 0, 0, 0);
-                      void setFollowUp.mutateAsync({
-                        leadId: lead.id,
-                        nextFollowUpAt: tomorrow.toISOString(),
-                      });
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs text-gray-500 hover:text-primary hover:bg-primary-50 transition-colors"
-                  >
-                    <Calendar size={13} />
-                    Set Follow-up
+                    <CheckCircle size={13} /> Done
                   </button>
                 )}
               </div>
@@ -182,21 +164,21 @@ export function LeadCards({ leads }: { leads: LeadSummary[] }) {
         })}
       </div>
 
-      {activeModal?.type === "note" && (
+      {modal?.type === "note" && (
         <QuickNoteModal
-          leadId={activeModal.lead.id}
-          studentName={activeModal.lead.studentName}
+          leadId={modal.lead.id}
+          studentName={modal.lead.studentName}
           open
-          onClose={() => setActiveModal(null)}
+          onClose={() => setModal(null)}
         />
       )}
-      {activeModal?.type === "assign" && (
+      {modal?.type === "assign" && (
         <QuickAssignModal
-          leadId={activeModal.lead.id}
-          studentName={activeModal.lead.studentName}
-          currentAssignee={activeModal.lead.assignedTo?.id ?? null}
+          leadId={modal.lead.id}
+          studentName={modal.lead.studentName}
+          currentAssignee={modal.lead.assignedTo?.id ?? null}
           open
-          onClose={() => setActiveModal(null)}
+          onClose={() => setModal(null)}
         />
       )}
     </>
