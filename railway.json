@@ -2,10 +2,10 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "pnpm install --frozen-lockfile && cd packages/db && npx prisma generate && cd ../.. && pnpm --filter api build"
+    "buildCommand": "NODE_ENV=development pnpm install --frozen-lockfile && cd packages/db && npx prisma generate && cd ../.."
   },
   "deploy": {
-    "startCommand": "node apps/api/dist/app.js",
+    "startCommand": "node_modules/.bin/tsx apps/api/src/app.ts",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
