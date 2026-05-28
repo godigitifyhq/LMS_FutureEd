@@ -41,9 +41,11 @@ export function useAuthInit(): { isLoading: boolean } {
           },
           accessToken,
         );
+        document.cookie = "auth_session=1; path=/; max-age=604800; SameSite=Lax";
       } catch {
-        // No valid cookie / session expired — user goes to login
+        // No valid session — clear the routing hint so middleware redirects correctly
         clearAuth();
+        document.cookie = "auth_session=; path=/; max-age=0; SameSite=Lax";
       }
     }
 

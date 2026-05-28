@@ -45,6 +45,7 @@ export function useLogin() {
         },
         data.accessToken,
       );
+      document.cookie = "auth_session=1; path=/; max-age=604800; SameSite=Lax";
       toast.success(`Welcome back, ${data.user.name.split(" ")[0]}!`);
       router.replace("/dashboard");
     },
@@ -116,12 +117,13 @@ export function useLogout() {
     },
     onSuccess: () => {
       clearAuth();
+      document.cookie = "auth_session=; path=/; max-age=0; SameSite=Lax";
       toast.success("Logged out successfully");
       router.replace("/login");
     },
     onError: () => {
-      // Clear auth state even if logout API fails
       clearAuth();
+      document.cookie = "auth_session=; path=/; max-age=0; SameSite=Lax";
       router.replace("/login");
     },
   });

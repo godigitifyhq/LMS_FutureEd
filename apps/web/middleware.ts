@@ -6,16 +6,19 @@ const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/setup-p
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
-  const hasRefreshCookie = request.cookies.has('refreshToken')
+  // auth_session is a frontend-domain cookie set after login.
+  // refreshToken is httpOnly on the API domain (cross-origin) and is never
+  // visible to Next.js middleware, so we use this lightweight routing hint.
+  const hasSession = request.cookies.has('auth_session')
 
-  if (!isPublic && !hasRefreshCookie) {
+  if (!isPublic && !hasSession) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('redirect', pathname)
     return NextResponse.redirect(url)
   }
 
-  if (isPublic && hasRefreshCookie && pathname === '/login') {
+  if (isPublic && hasSession && pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
