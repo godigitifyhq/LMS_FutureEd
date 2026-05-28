@@ -11,6 +11,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "FutureEd LMS",
   description: "Lead Management System — Future Education",
+  icons: { icon: "/logo.jpg" },
 };
 
 export default function RootLayout({
