@@ -4,7 +4,8 @@
       "Bash(Get-ChildItem -Path \"d:\\\\web_all\\\\LMS_FutureEd\" -Directory)",
       "Bash(node -e \"const PDFDocument = require\\('./apps/api/node_modules/pdfkit'\\); const doc = new PDFDocument\\(\\); const chunks = []; doc.on\\('data', c => chunks.push\\(c\\)\\); doc.on\\('end', \\(\\) => { const buf = Buffer.concat\\(chunks\\); console.log\\('PDF size:', buf.length, 'First bytes:', buf.slice\\(0,4\\).toString\\(\\)\\); }\\); doc.text\\('Test'\\); doc.end\\(\\);\")",
       "Bash(pnpm --filter api build)",
-      "Bash(pnpm --filter web build)"
+      "Bash(pnpm --filter web build)",
+      "Bash(pnpm install *)"
     ]
   }
 }
