@@ -39,31 +39,42 @@ async function main() {
     },
   });
 
-  const staffPasswordHash = await bcrypt.hash("Staff@FutureEd123", 12);
+  const subAdminPasswordHash = await bcrypt.hash("SubAdmin@FutureEd123", 12);
 
   await prisma.user.upsert({
     where: { email: "subadmin@futureeducation.in" },
-    update: { passwordHash: staffPasswordHash },
+    update: { passwordHash: subAdminPasswordHash },
     create: {
       name: "Sub Admin",
       email: "subadmin@futureeducation.in",
-      passwordHash: staffPasswordHash,
+      passwordHash: subAdminPasswordHash,
       role: "SUB_ADMIN",
       branchId: branch.id,
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: "employee@futureeducation.in" },
-    update: { passwordHash: staffPasswordHash },
-    create: {
-      name: "Employee",
-      email: "employee@futureeducation.in",
-      passwordHash: staffPasswordHash,
-      role: "EMPLOYEE",
-      branchId: branch.id,
-    },
-  });
+  const employees = [
+    { name: "Employee",   email: "employee@futureeducation.in",  password: "Emp1@FutureEd123" },
+    { name: "Employee 2", email: "employee2@futureeducation.in", password: "Emp2@FutureEd123" },
+    { name: "Employee 3", email: "employee3@futureeducation.in", password: "Emp3@FutureEd123" },
+    { name: "Employee 4", email: "employee4@futureeducation.in", password: "Emp4@FutureEd123" },
+    { name: "Employee 5", email: "employee5@futureeducation.in", password: "Emp5@FutureEd123" },
+  ];
+
+  for (const emp of employees) {
+    const hash = await bcrypt.hash(emp.password, 12);
+    await prisma.user.upsert({
+      where: { email: emp.email },
+      update: { passwordHash: hash },
+      create: {
+        name: emp.name,
+        email: emp.email,
+        passwordHash: hash,
+        role: "EMPLOYEE",
+        branchId: branch.id,
+      },
+    });
+  }
 
   // 3. Seed lead source types
   const sources = [

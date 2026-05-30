@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs grep -l \"canViewLead\\\\|canEmployeeSeeConfirmedLead\")"
+      "Bash(xargs grep -l \"canViewLead\\\\|canEmployeeSeeConfirmedLead\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

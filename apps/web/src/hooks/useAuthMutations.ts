@@ -117,13 +117,11 @@ export function useLogout() {
     },
     onSuccess: () => {
       clearAuth();
-      document.cookie = "auth_session=; path=/; max-age=0; SameSite=Lax";
       toast.success("Logged out successfully");
       router.replace("/login");
     },
     onError: () => {
       clearAuth();
-      document.cookie = "auth_session=; path=/; max-age=0; SameSite=Lax";
       router.replace("/login");
     },
   });

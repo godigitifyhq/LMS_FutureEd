@@ -38,6 +38,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearAuth: () => {
     tokenStore.clear();
+    if (typeof document !== "undefined") {
+      document.cookie = "auth_session=; path=/; max-age=0; SameSite=Lax";
+    }
     set({ user: null, isLoading: false, isAuthenticated: false });
   },
 
@@ -59,13 +62,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true,
       });
     } catch {
-      set({
-        user: null,
-        isLoading: false,
-        isBootstrapped: true,
-        isBootstrapping: false,
-        isAuthenticated: false,
-      });
+      get().clearAuth();
+      set({ isBootstrapped: true, isBootstrapping: false });
     }
   },
 }));

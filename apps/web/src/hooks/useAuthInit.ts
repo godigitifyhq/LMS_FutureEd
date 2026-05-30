@@ -43,9 +43,7 @@ export function useAuthInit(): { isLoading: boolean } {
         );
         document.cookie = "auth_session=1; path=/; max-age=604800; SameSite=Lax";
       } catch {
-        // No valid session — clear the routing hint so middleware redirects correctly
         clearAuth();
-        document.cookie = "auth_session=; path=/; max-age=0; SameSite=Lax";
       }
     }
 
