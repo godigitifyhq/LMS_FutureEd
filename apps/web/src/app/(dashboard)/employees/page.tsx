@@ -67,7 +67,7 @@ export default function EmployeesPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const qc = useQueryClient();
-  const { success } = useNotifications();
+  const { success, error: notifyError } = useNotifications();
 
   // Filters
   const [filters, setFilters] = useState({
@@ -217,9 +217,18 @@ export default function EmployeesPage() {
       });
       success("Employee updated");
       setEditModal(null);
-      void qc.invalidateQueries({ queryKey: ["users"] });
+      // Invalidate every cache that shows user names so the change
+      // reflects immediately in lead lists, timelines, dashboards, etc.
+      void Promise.all([
+        qc.invalidateQueries({ queryKey: ["users"] }),
+        qc.invalidateQueries({ queryKey: ["leads"] }),
+        qc.invalidateQueries({ queryKey: ["lead"] }),
+        qc.invalidateQueries({ queryKey: ["interactions"] }),
+        qc.invalidateQueries({ queryKey: ["dashboard"] }),
+        qc.invalidateQueries({ queryKey: ["activity"] }),
+      ]);
     } catch {
-      success("Failed to update employee");
+      notifyError("Failed to update employee", "Please try again");
     } finally {
       setEditLoading(false);
     }
