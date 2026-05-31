@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, AlertTriangle, Loader2, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -69,43 +69,58 @@ export default function NewLeadPage() {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [duplicateHint, setDuplicateHint] = useState<{ id: string; name: string } | null>(null);
+  const [duplicateLead, setDuplicateLead] = useState<{
+    id: string;
+    name: string;
+    phone: string;
+    status: string;
+  } | null>(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
 
-  // Debounced duplicate check
+  // Debounced phone duplicate check — fires as soon as 10 valid digits are entered
   const phoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const emailTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (phoneTimerRef.current) clearTimeout(phoneTimerRef.current);
-    if (!form.phone.match(/^[6-9]\d{9}$/)) { setDuplicateHint(null); return; }
+    if (!form.phone.match(/^[6-9]\d{9}$/)) {
+      setDuplicateLead(null);
+      setCheckingDuplicate(false);
+      return;
+    }
+    setCheckingDuplicate(true);
     phoneTimerRef.current = setTimeout(async () => {
       try {
-        const { data } = await api.get(`/leads?search=${form.phone}&pageSize=1`);
-        const lead = data?.data?.leads?.[0];
-        if (lead) setDuplicateHint({ id: lead.id, name: lead.studentName });
-        else setDuplicateHint(null);
-      } catch { setDuplicateHint(null); }
-    }, 500);
+        const { data } = await api.get(
+          `/leads?search=${form.phone}&pageSize=20`,
+        );
+        const leads = data?.data?.leads as
+          | Array<{ id: string; studentName: string; phone: string; status: string }>
+          | undefined;
+        // Only flag as duplicate if the phone matches exactly
+        const match = leads?.find((l) => l.phone === form.phone);
+        if (match) {
+          setDuplicateLead({
+            id: match.id,
+            name: match.studentName,
+            phone: match.phone,
+            status: match.status,
+          });
+        } else {
+          setDuplicateLead(null);
+        }
+      } catch {
+        setDuplicateLead(null);
+      } finally {
+        setCheckingDuplicate(false);
+      }
+    }, 400);
   }, [form.phone]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
-    const emailVal = form.email.trim();
-    if (!emailVal || !emailVal.includes("@")) { if (!form.phone.match(/^[6-9]\d{9}$/)) setDuplicateHint(null); return; }
-    emailTimerRef.current = setTimeout(async () => {
-      try {
-        const { data } = await api.get(`/leads?search=${encodeURIComponent(emailVal)}&pageSize=1`);
-        const lead = data?.data?.leads?.[0];
-        if (lead) setDuplicateHint({ id: lead.id, name: lead.studentName });
-      } catch { /* ignore */ }
-    }, 500);
-  }, [form.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch courses and sources
   const { data: courses } = useQuery({
     queryKey: ["courses", "active"],
     queryFn: async () => {
-      const { data } = await api.get("/settings/courses?isActive=true"); // ← only active
+      const { data } = await api.get("/settings/courses?isActive=true");
       return data.data as Array<{ id: string; name: string }>;
     },
   });
@@ -238,321 +253,375 @@ export default function NewLeadPage() {
       </div>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
-        {/* Step 1 — Required */}
+        {/* Step 1 — Phone + duplicate gate */}
         <div className="bg-white border border-surface-200 rounded-xl p-5 space-y-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
             Basic Information
           </p>
 
-          <Input
-            label="Mobile Number"
-            required
-            placeholder="10-digit mobile number"
-            value={form.phone}
-            onChange={(e) => set("phone", e.target.value)}
-            error={errors["phone"]}
-            maxLength={10}
-            inputMode="numeric"
-          />
-          {duplicateHint && (
-            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
-              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-              <span>
-                Possible duplicate: <strong>{duplicateHint.name}</strong> already exists with this phone/email.{" "}
-                <button type="button" onClick={() => router.push(`/leads/${duplicateHint.id}`)}
-                  className="underline font-semibold hover:text-amber-900">View lead →</button>
-              </span>
-            </div>
-          )}
-          <Input
-            label="Student Name"
-            required
-            placeholder="As per Matric record"
-            value={form.studentName}
-            onChange={(e) => set("studentName", e.target.value)}
-            error={errors["studentName"]}
-          />
-          <div className="grid grid-cols-2 gap-4">
+          {/* Phone field */}
+          <div className="space-y-2">
             <Input
-              label="Date of Birth"
-              type="date"
-              value={form.dateOfBirth}
-              onChange={(e) => set("dateOfBirth", e.target.value)}
-              error={errors["dateOfBirth"]}
+              label="Mobile Number"
+              required
+              placeholder="10-digit mobile number"
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value)}
+              error={errors["phone"]}
+              maxLength={10}
+              inputMode="numeric"
             />
-            <Input
-              label="Father's Name"
-              placeholder="Father's full name"
-              value={form.fatherName}
-              onChange={(e) => set("fatherName", e.target.value)}
-              error={errors["fatherName"]}
-            />
-          </div>
-        </div>
-
-        {/* Step 2 — Course info (collapsible) */}
-        <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowCourse(!showCourse)}
-            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-surface-50 transition-colors"
-          >
-            <span className="text-sm font-semibold text-gray-700">
-              Course & Source Information
-            </span>
-            {showCourse ? (
-              <ChevronDown size={16} />
-            ) : (
-              <ChevronRight size={16} />
+            {checkingDuplicate && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                <Loader2 size={12} className="animate-spin" />
+                Checking for duplicates…
+              </div>
             )}
-          </button>
+          </div>
 
-          {showCourse && (
-            <div className="px-5 pb-5 space-y-4 border-t border-surface-100">
-              {/* Courses multi-select */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Interested Courses
-                </label>
-                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                  {courses?.map((course) => (
-                    <label
-                      key={course.id}
-                      className={cn(
-                        "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
-                        form.courseIds.includes(course.id)
-                          ? "border-primary bg-primary-50"
-                          : "border-surface-200 hover:border-primary-300",
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={form.courseIds.includes(course.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            set("courseIds", [...form.courseIds, course.id]);
-                          } else {
-                            set(
-                              "courseIds",
-                              form.courseIds.filter((id) => id !== course.id),
-                            );
-                          }
-                        }}
-                        className="accent-primary"
-                      />
-                      <span className="text-xs text-gray-700">
-                        {course.name}
-                      </span>
-                    </label>
-                  ))}
+          {/* ── Duplicate found — block the form ── */}
+          {duplicateLead ? (
+            <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle size={18} className="text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-red-700">
+                    Duplicate Number Detected
+                  </p>
+                  <p className="text-xs text-red-600 mt-0.5">
+                    This mobile number is already registered in the system. No need to re-enter.
+                  </p>
                 </div>
               </div>
 
-              {/* Source */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Lead Source
-                </label>
-                <select
-                  value={form.sourceId}
-                  onChange={(e) => set("sourceId", e.target.value)}
-                  aria-label="Lead source"
-                  title="Lead source"
-                  className="w-full px-3 py-2.5 rounded-lg border border-surface-200 text-sm outline-none focus:border-primary bg-white"
+              {/* Existing lead card */}
+              <div className="bg-white rounded-lg border border-red-200 px-4 py-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                  <UserCheck size={14} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">
+                    {duplicateLead.name}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {duplicateLead.phone} ·{" "}
+                    {duplicateLead.status.replace(/_/g, " ")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/leads/${duplicateLead.id}`)}
+                  className="shrink-0 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-800 transition-colors"
                 >
-                  <option value="">Select source type</option>
-                  {sources?.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                  Open Lead →
+                </button>
               </div>
 
-              {form.sourceId &&
-                sources?.find((s) => s.id === form.sourceId)?.name ===
-                  "Others" && (
-                  <Input
-                    label="Specify Source"
-                    placeholder="Describe the source"
-                    value={form.sourceOther}
-                    onChange={(e) => set("sourceOther", e.target.value)}
-                  />
+              <p className="text-xs text-red-500 text-center">
+                Change the mobile number above to create a new lead.
+              </p>
+            </div>
+          ) : (
+            /* Rest of the form — only shown when no duplicate */
+            <>
+              <Input
+                label="Student Name"
+                required
+                placeholder="As per Matric record"
+                value={form.studentName}
+                onChange={(e) => set("studentName", e.target.value)}
+                error={errors["studentName"]}
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Date of Birth"
+                  type="date"
+                  value={form.dateOfBirth}
+                  onChange={(e) => set("dateOfBirth", e.target.value)}
+                  error={errors["dateOfBirth"]}
+                />
+                <Input
+                  label="Father's Name"
+                  placeholder="Father's full name"
+                  value={form.fatherName}
+                  onChange={(e) => set("fatherName", e.target.value)}
+                  error={errors["fatherName"]}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Only show remaining sections when no duplicate */}
+        {!duplicateLead && (
+          <>
+            {/* Step 2 — Course info (collapsible) */}
+            <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowCourse(!showCourse)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-surface-50 transition-colors"
+              >
+                <span className="text-sm font-semibold text-gray-700">
+                  Course & Source Information
+                </span>
+                {showCourse ? (
+                  <ChevronDown size={16} />
+                ) : (
+                  <ChevronRight size={16} />
                 )}
+              </button>
+
+              {showCourse && (
+                <div className="px-5 pb-5 space-y-4 border-t border-surface-100">
+                  {/* Courses multi-select */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Interested Courses
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                      {courses?.map((course) => (
+                        <label
+                          key={course.id}
+                          className={cn(
+                            "flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors",
+                            form.courseIds.includes(course.id)
+                              ? "border-primary bg-primary-50"
+                              : "border-surface-200 hover:border-primary-300",
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.courseIds.includes(course.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                set("courseIds", [...form.courseIds, course.id]);
+                              } else {
+                                set(
+                                  "courseIds",
+                                  form.courseIds.filter((id) => id !== course.id),
+                                );
+                              }
+                            }}
+                            className="accent-primary"
+                          />
+                          <span className="text-xs text-gray-700">
+                            {course.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Source */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Lead Source
+                    </label>
+                    <select
+                      value={form.sourceId}
+                      onChange={(e) => set("sourceId", e.target.value)}
+                      aria-label="Lead source"
+                      title="Lead source"
+                      className="w-full px-3 py-2.5 rounded-lg border border-surface-200 text-sm outline-none focus:border-primary bg-white"
+                    >
+                      <option value="">Select source type</option>
+                      {sources?.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {form.sourceId &&
+                    sources?.find((s) => s.id === form.sourceId)?.name ===
+                      "Others" && (
+                      <Input
+                        label="Specify Source"
+                        placeholder="Describe the source"
+                        value={form.sourceOther}
+                        onChange={(e) => set("sourceOther", e.target.value)}
+                      />
+                    )}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Step 3 — More info (collapsible) */}
-        <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowMore(!showMore)}
-            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-surface-50 transition-colors"
-          >
-            <span className="text-sm font-semibold text-gray-700">
-              Additional Student Information
-            </span>
-            {showMore ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
+            {/* Step 3 — More info (collapsible) */}
+            <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowMore(!showMore)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-surface-50 transition-colors"
+              >
+                <span className="text-sm font-semibold text-gray-700">
+                  Additional Student Information
+                </span>
+                {showMore ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
 
-          {showMore && (
-            <div className="px-5 pb-5 space-y-4 border-t border-surface-100">
-              {/* Qualification */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Qualification
-                </label>
-                <select
-                  value={form.qualification}
-                  onChange={(e) => set("qualification", e.target.value)}
-                  aria-label="Qualification"
-                  title="Qualification"
-                  className="w-full px-3 py-2.5 rounded-lg border border-surface-200 text-sm outline-none focus:border-primary bg-white"
-                >
-                  <option value="">Select qualification</option>
-                  {QUALIFICATIONS.map((q) => (
-                    <option key={q} value={q}>
-                      {QUAL_LABELS[q]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {showMore && (
+                <div className="px-5 pb-5 space-y-4 border-t border-surface-100">
+                  {/* Qualification */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Qualification
+                    </label>
+                    <select
+                      value={form.qualification}
+                      onChange={(e) => set("qualification", e.target.value)}
+                      aria-label="Qualification"
+                      title="Qualification"
+                      className="w-full px-3 py-2.5 rounded-lg border border-surface-200 text-sm outline-none focus:border-primary bg-white"
+                    >
+                      <option value="">Select qualification</option>
+                      {QUALIFICATIONS.map((q) => (
+                        <option key={q} value={q}>
+                          {QUAL_LABELS[q]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="School/College"
-                  placeholder="Institution name"
-                  value={form.schoolCollege}
-                  onChange={(e) => set("schoolCollege", e.target.value)}
-                />
-                <Input
-                  label="Board/University"
-                  placeholder="e.g. CBSE, JNU"
-                  value={form.boardUniversity}
-                  onChange={(e) => set("boardUniversity", e.target.value)}
-                />
-                <Input
-                  label="Passing Year"
-                  type="number"
-                  placeholder="e.g. 2023"
-                  value={form.passingYear}
-                  onChange={(e) => set("passingYear", e.target.value)}
-                />
-                <Input
-                  label="Percentage/Marks %"
-                  type="number"
-                  placeholder="e.g. 75"
-                  value={form.percentage}
-                  onChange={(e) => set("percentage", e.target.value)}
-                />
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="School/College"
+                      placeholder="Institution name"
+                      value={form.schoolCollege}
+                      onChange={(e) => set("schoolCollege", e.target.value)}
+                    />
+                    <Input
+                      label="Board/University"
+                      placeholder="e.g. CBSE, JNU"
+                      value={form.boardUniversity}
+                      onChange={(e) => set("boardUniversity", e.target.value)}
+                    />
+                    <Input
+                      label="Passing Year"
+                      type="number"
+                      placeholder="e.g. 2023"
+                      value={form.passingYear}
+                      onChange={(e) => set("passingYear", e.target.value)}
+                    />
+                    <Input
+                      label="Percentage/Marks %"
+                      type="number"
+                      placeholder="e.g. 75"
+                      value={form.percentage}
+                      onChange={(e) => set("percentage", e.target.value)}
+                    />
+                  </div>
 
-              {/* Address */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-2">
-                Address
+                  {/* Address */}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-2">
+                    Address
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Village/Quarter/Plot"
+                      value={form.village}
+                      onChange={(e) => set("village", e.target.value)}
+                    />
+                    <Input
+                      label="Sector/Colony/P.O."
+                      value={form.sector}
+                      onChange={(e) => set("sector", e.target.value)}
+                    />
+                    <Input
+                      label="City"
+                      value={form.city}
+                      onChange={(e) => set("city", e.target.value)}
+                    />
+                    <Input
+                      label="District"
+                      value={form.district}
+                      onChange={(e) => set("district", e.target.value)}
+                    />
+                    <Input
+                      label="State"
+                      value={form.state}
+                      onChange={(e) => set("state", e.target.value)}
+                    />
+                  </div>
+
+                  {/* Contact */}
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-2">
+                    Additional Contact
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Alternate Mobile"
+                      placeholder="10-digit number"
+                      value={form.alternatePhone}
+                      onChange={(e) => set("alternatePhone", e.target.value)}
+                      maxLength={10}
+                      inputMode="numeric"
+                    />
+                    <Input
+                      label="WhatsApp Number"
+                      placeholder="10-digit number"
+                      value={form.whatsappNumber}
+                      onChange={(e) => set("whatsappNumber", e.target.value)}
+                      maxLength={10}
+                      inputMode="numeric"
+                    />
+                    <Input
+                      label="Email ID"
+                      type="email"
+                      placeholder="student@email.com"
+                      value={form.email}
+                      onChange={(e) => set("email", e.target.value)}
+                      className="col-span-2"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Step 4 — Follow-up */}
+            <div className="bg-white border border-surface-200 rounded-xl p-5 space-y-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Follow-up
               </p>
               <div className="grid grid-cols-2 gap-4">
                 <Input
-                  label="Village/Quarter/Plot"
-                  value={form.village}
-                  onChange={(e) => set("village", e.target.value)}
-                />
-                <Input
-                  label="Sector/Colony/P.O."
-                  value={form.sector}
-                  onChange={(e) => set("sector", e.target.value)}
-                />
-                <Input
-                  label="City"
-                  value={form.city}
-                  onChange={(e) => set("city", e.target.value)}
-                />
-                <Input
-                  label="District"
-                  value={form.district}
-                  onChange={(e) => set("district", e.target.value)}
-                />
-                <Input
-                  label="State"
-                  value={form.state}
-                  onChange={(e) => set("state", e.target.value)}
+                  label="Next Follow-up Date"
+                  type="datetime-local"
+                  value={form.nextFollowUpAt}
+                  onChange={(e) => set("nextFollowUpAt", e.target.value)}
                 />
               </div>
-
-              {/* Contact */}
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-2">
-                Additional Contact
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Alternate Mobile"
-                  placeholder="10-digit number"
-                  value={form.alternatePhone}
-                  onChange={(e) => set("alternatePhone", e.target.value)}
-                  maxLength={10}
-                  inputMode="numeric"
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.sendEmail}
+                  onChange={(e) => set("sendEmail", e.target.checked)}
+                  className="accent-primary w-4 h-4"
                 />
-                <Input
-                  label="WhatsApp Number"
-                  placeholder="10-digit number"
-                  value={form.whatsappNumber}
-                  onChange={(e) => set("whatsappNumber", e.target.value)}
-                  maxLength={10}
-                  inputMode="numeric"
-                />
-                <Input
-                  label="Email ID"
-                  type="email"
-                  placeholder="student@email.com"
-                  value={form.email}
-                  onChange={(e) => set("email", e.target.value)}
-                  className="col-span-2"
-                />
-              </div>
+                <span className="text-sm text-gray-700">
+                  Send email notification to student
+                </span>
+              </label>
             </div>
-          )}
-        </div>
 
-        {/* Step 4 — Follow-up */}
-        <div className="bg-white border border-surface-200 rounded-xl p-5 space-y-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Follow-up
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Next Follow-up Date"
-              type="datetime-local"
-              value={form.nextFollowUpAt}
-              onChange={(e) => set("nextFollowUpAt", e.target.value)}
-            />
-          </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.sendEmail}
-              onChange={(e) => set("sendEmail", e.target.checked)}
-              className="accent-primary w-4 h-4"
-            />
-            <span className="text-sm text-gray-700">
-              Send email notification to student
-            </span>
-          </label>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3 justify-end">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => router.back()}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" loading={loading}>
-            Create Lead
-          </Button>
-        </div>
+            {/* Actions */}
+            <div className="flex gap-3 justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => router.back()}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={loading}>
+                Create Lead
+              </Button>
+            </div>
+          </>
+        )}
       </form>
 
       {/* Duplicate modal */}
