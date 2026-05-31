@@ -75,7 +75,7 @@ export default function EditLeadPage() {
       whatsappNumber: lead.whatsappNumber ?? "",
       email: lead.email ?? "",
       nextFollowUpAt: lead.nextFollowUpAt
-        ? new Date(lead.nextFollowUpAt as string).toISOString().slice(0, 16)
+        ? new Date(lead.nextFollowUpAt as unknown as string).toISOString().slice(0, 16)
         : "",
     });
   }, [lead]);
