@@ -62,6 +62,14 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
   }
+  /* Prevent iOS Safari from auto-zooming on input focus (requires 16px minimum) */
+  input, select, textarea {
+    font-size: max(16px, 1em);
+  }
+  /* Prevent double-tap zoom on interactive elements */
+  button, a, [role="button"] {
+    touch-action: manipulation;
+  }
 }
 
 /* Custom scrollbar */

@@ -48,8 +48,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (get().isBootstrapped || get().isBootstrapping) return;
     set({ isLoading: true, isBootstrapping: true });
     try {
-      // Try refresh first to get new access token
-      const { data: refreshData } = await api.post("/auth/refresh");
+      // Call the same-origin Next.js proxy so iOS Safari's ITP never blocks the cookie
+      const refreshRes = await fetch("/api/auth/refresh", { method: "POST" });
+      if (!refreshRes.ok) throw new Error("refresh_failed");
+      const refreshData = await refreshRes.json() as { data: { accessToken: string } };
       tokenStore.set(refreshData.data.accessToken);
 
       // Then get user info

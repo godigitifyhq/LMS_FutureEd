@@ -55,12 +55,9 @@ api.interceptors.response.use(
 
       isRefreshing = true;
       try {
-        const { data } = await axios.post(
-          `${BASE_URL}/api/v1/auth/refresh`,
-          {},
-          { withCredentials: true },
-        );
-        const newToken = data.data.accessToken;
+        // Use same-origin proxy — iOS Safari ITP won't block first-party cookies
+        const { data } = await axios.post("/api/auth/refresh", {});
+        const newToken = data.data.accessToken as string;
         tokenStore.set(newToken);
         queue.forEach((cb) => cb(newToken));
         queue = [];

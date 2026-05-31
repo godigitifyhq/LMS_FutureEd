@@ -28,10 +28,11 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async (credentials: { email: string; password: string }) => {
-      const { data } = await api.post<LoginResponse>(
-        "/auth/login",
-        credentials,
-      );
+      // Use same-origin Next.js proxy so the refreshToken cookie is first-party (iOS safe).
+      // Override baseURL to "" so axios resolves to the current origin instead of the API domain.
+      const { data } = await api.post<LoginResponse>("/api/auth/login", credentials, {
+        baseURL: "",
+      });
       return data.data;
     },
     onSuccess: (data) => {
@@ -113,7 +114,7 @@ export function useLogout() {
 
   return useMutation({
     mutationFn: async () => {
-      await api.post("/auth/logout", {});
+      await api.post("/api/auth/logout", {}, { baseURL: "" });
     },
     onSuccess: () => {
       clearAuth();
