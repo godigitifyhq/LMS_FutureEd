@@ -8,16 +8,17 @@ import {
 } from "../enums";
 
 // ── Create Lead ──
-// Required: phone, studentName, dateOfBirth, fatherName
+// Required: phone, studentName only
 export const CreateLeadSchema = z.object({
   // Required fields
   phone: indianPhone,
   studentName: z.string().trim().min(2, "Name must be at least 2 characters"),
-  dateOfBirth: dateString,
+  dateOfBirth: dateString.optional(),
   fatherName: z
     .string()
     .trim()
-    .min(2, "Father name must be at least 2 characters"),
+    .min(2, "Father name must be at least 2 characters")
+    .optional(),
 
   // Optional contact
   alternatePhone: z

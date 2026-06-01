@@ -217,16 +217,9 @@ export default function EmployeesPage() {
       });
       success("Employee updated");
       setEditModal(null);
-      // Invalidate every cache that shows user names so the change
-      // reflects immediately in lead lists, timelines, dashboards, etc.
-      void Promise.all([
-        qc.invalidateQueries({ queryKey: ["users"] }),
-        qc.invalidateQueries({ queryKey: ["leads"] }),
-        qc.invalidateQueries({ queryKey: ["lead"] }),
-        qc.invalidateQueries({ queryKey: ["interactions"] }),
-        qc.invalidateQueries({ queryKey: ["dashboard"] }),
-        qc.invalidateQueries({ queryKey: ["activity"] }),
-      ]);
+      // Invalidate ALL cached queries — a name change appears in lead lists,
+      // interaction timelines, assignment dropdowns, dashboards, etc.
+      void qc.invalidateQueries();
     } catch {
       notifyError("Failed to update employee", "Please try again");
     } finally {
