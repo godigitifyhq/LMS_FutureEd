@@ -16,15 +16,15 @@ export function canAddInteraction(
 
 // ─────────────────────────────────────────
 // Who can edit an interaction note?
-// ONLY the person who wrote it — regardless of role
-// Even ADMIN cannot edit another person's note
+// ADMIN and SUB_ADMIN only (any note in their branch)
+// Employees cannot edit remarks — changes are tracked and must be auditable
 // ─────────────────────────────────────────
 export function canEditInteraction(
   user: AuthUser,
   interaction: InteractionOwnership
 ): boolean {
   if (interaction.isDeleted) return false
-  return interaction.userId === user.id
+  return user.role === Role.ADMIN || user.role === Role.SUB_ADMIN
 }
 
 // ─────────────────────────────────────────

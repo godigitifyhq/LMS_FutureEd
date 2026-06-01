@@ -13,7 +13,7 @@ import {
   Pencil,
   AlertCircle,
 } from "lucide-react";
-import { InteractionType } from "@lms/types";
+import { InteractionType, Role } from "@lms/types";
 import { useEditInteraction } from "@/hooks/useLeadDetail";
 import { useAuthStore } from "@/store/auth";
 import { cn } from "@/lib/utils";
@@ -128,11 +128,10 @@ function InteractionItem({
 
   const config = TYPE_CONFIG[interaction.type] ?? TYPE_CONFIG["NOTE"]!;
   const Icon = config.icon;
-  const isOwn = interaction.user.id === user?.id;
+  const isManager = user?.role === Role.ADMIN || user?.role === Role.SUB_ADMIN;
   const canEdit =
-    isOwn &&
-    interaction.type !== InteractionType.STATUS_CHANGED &&
-    dayjs().diff(dayjs(interaction.createdAt), "hour") < 24;
+    isManager &&
+    interaction.type !== InteractionType.STATUS_CHANGED;
 
   const isDuplicateNote = interaction.note?.startsWith("[DUPLICATE DETECTED]");
 

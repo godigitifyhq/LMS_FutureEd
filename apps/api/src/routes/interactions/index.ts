@@ -253,10 +253,10 @@ export async function interactionRoutes(
 
   // ─────────────────────────────────────────
   // PATCH /interactions/:id
-  // Edit interaction note — 24 hour window
+  // Edit interaction note — admin/sub-admin only
   // ─────────────────────────────────────────
   fastify.patch(
-    "/:id",
+    "/interactions/:id",
     {
       preHandler: authenticate,
     },
@@ -375,7 +375,7 @@ export async function interactionRoutes(
   // Soft delete — ADMIN only
   // ─────────────────────────────────────────
   fastify.delete(
-    "/:id",
+    "/interactions/:id",
     {
       preHandler: [authenticate, authorize([Role.ADMIN])],
     },
