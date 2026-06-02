@@ -13,12 +13,18 @@ export const CreateLeadSchema = z.object({
   // Required fields
   phone: indianPhone,
   studentName: z.string().trim().min(2, "Name must be at least 2 characters"),
-  dateOfBirth: dateString.optional(),
-  fatherName: z
-    .string()
-    .trim()
-    .min(2, "Father name must be at least 2 characters")
-    .optional(),
+  dateOfBirth: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    dateString.optional(),
+  ),
+  fatherName: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z
+      .string()
+      .trim()
+      .min(2, "Father name must be at least 2 characters")
+      .optional(),
+  ),
 
   // Optional contact
   alternatePhone: z
