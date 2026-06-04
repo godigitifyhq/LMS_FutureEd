@@ -73,6 +73,12 @@ type AcademicRow = {
   grade: string;
 };
 
+type AcademicLevelKey =
+  | "TENTH"
+  | "TWELFTH"
+  | "GRADUATION"
+  | "POST_GRADUATION";
+
 type ExamRow = {
   examName: string;
   rollNo: string;
@@ -157,7 +163,7 @@ function buildLeadAddress(lead: Lead): string {
 
 function mapQualificationToLevel(
   qualification: QualificationLevel | null,
-): keyof Record<string, AcademicRow> | null {
+): AcademicLevelKey | null {
   switch (qualification) {
     case QualificationLevel.TENTH:
       return "TENTH";
@@ -186,8 +192,8 @@ function buildFormFromLead(lead: Lead): FormState {
   };
 }
 
-function buildAcademicFromLead(lead: Lead): Record<string, AcademicRow> {
-  const nextAcademic = {
+function buildAcademicFromLead(lead: Lead): Record<AcademicLevelKey, AcademicRow> {
+  const nextAcademic: Record<AcademicLevelKey, AcademicRow> = {
     TENTH: { ...emptyAcademic },
     TWELFTH: { ...emptyAcademic },
     GRADUATION: { ...emptyAcademic },
