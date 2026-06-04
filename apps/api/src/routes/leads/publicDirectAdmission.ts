@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { Gender, LeadStatus, MaritalStatus } from "@lms/types";
 import { validateBody } from "../../middleware/validate";
+import { findDuplicateLeads } from "./service";
 
 const PublicDirectAdmissionSchema = z.object({
   studentName: z.string().trim().min(2, "Student name is required"),
@@ -69,6 +70,28 @@ function normalizeEnum<T extends string>(
 export async function publicDirectAdmissionRoute(
   fastify: FastifyInstance,
 ): Promise<void> {
+  fastify.get("/public/direct-admission/check-duplicate", async (request, reply) => {
+    const { phone } = request.query as { phone?: string };
+
+    if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: "INVALID_PHONE",
+          message: "Provide a valid 10-digit Indian mobile number",
+        },
+      });
+    }
+
+    const leads = await findDuplicateLeads({
+      phone,
+      email: null,
+      prisma: fastify.prisma,
+    });
+
+    return reply.status(200).send({ success: true, data: { leads } });
+  });
+
   fastify.post("/public/direct-admission", async (request, reply) => {
     const validation = validateBody(PublicDirectAdmissionSchema, request.body);
     if (!validation.success) {

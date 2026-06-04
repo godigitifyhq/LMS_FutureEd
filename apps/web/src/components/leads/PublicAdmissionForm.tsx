@@ -1,8 +1,14 @@
 "use client";
 
 import type { FormEvent, InputHTMLAttributes } from "react";
-import { useState } from "react";
-import { CheckCircle2, Loader2, GraduationCap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  GraduationCap,
+  Loader2,
+  UserCheck,
+} from "lucide-react";
 import api from "@/lib/api";
 
 type FormState = {
@@ -198,13 +204,70 @@ export function PublicAdmissionForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [duplicateLead, setDuplicateLead] = useState<{
+    id: string;
+    name: string;
+    phone: string;
+    status: string;
+  } | null>(null);
+  const phoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function setField(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  useEffect(() => {
+    if (phoneTimerRef.current) clearTimeout(phoneTimerRef.current);
+
+    if (!form.phone.match(/^[6-9]\d{9}$/)) {
+      setDuplicateLead(null);
+      setCheckingDuplicate(false);
+      return;
+    }
+
+    setCheckingDuplicate(true);
+    phoneTimerRef.current = setTimeout(async () => {
+      try {
+        const { data } = await api.get(
+          `/leads/public/direct-admission/check-duplicate?phone=${form.phone}`,
+        );
+        const leads = data?.data?.leads as
+          | Array<{
+              id: string;
+              studentName: string;
+              phone: string;
+              status: string;
+              isDuplicate: boolean;
+            }>
+          | undefined;
+        const match = leads?.find((lead) => !lead.isDuplicate) ?? leads?.[0];
+
+        if (match) {
+          setDuplicateLead({
+            id: match.id,
+            name: match.studentName,
+            phone: match.phone,
+            status: match.status,
+          });
+        } else {
+          setDuplicateLead(null);
+        }
+      } catch {
+        setDuplicateLead(null);
+      } finally {
+        setCheckingDuplicate(false);
+      }
+    }, 400);
+
+    return () => {
+      if (phoneTimerRef.current) clearTimeout(phoneTimerRef.current);
+    };
+  }, [form.phone]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (checkingDuplicate || duplicateLead) return;
     setSaving(true);
     setError(null);
 
@@ -332,6 +395,47 @@ export function PublicAdmissionForm() {
                   onChange={(v) => setField("phone", v)}
                   inputMode="numeric"
                 />
+                <div className="sm:col-span-2">
+                  {checkingDuplicate && (
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <Loader2 size={12} className="animate-spin" />
+                      Checking for duplicate number...
+                    </div>
+                  )}
+
+                  {duplicateLead ? (
+                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100">
+                          <AlertTriangle size={18} className="text-red-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-red-700">
+                            Duplicate number detected
+                          </p>
+                          <p className="mt-1 text-xs text-red-600">
+                            This mobile number already exists in the system.
+                            Please change the number to continue.
+                          </p>
+                          <div className="mt-3 flex items-center gap-3 rounded-xl border border-red-200 bg-white px-4 py-3">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                              <UserCheck size={14} className="text-amber-700" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-slate-900">
+                                {duplicateLead.name}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {duplicateLead.phone} ·{" "}
+                                {duplicateLead.status.replace(/_/g, " ")}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
                 <Field
                   label="Father's Name"
                   value={form.fatherName}
@@ -593,7 +697,7 @@ export function PublicAdmissionForm() {
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || checkingDuplicate || !!duplicateLead}
               className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? (
@@ -601,7 +705,13 @@ export function PublicAdmissionForm() {
               ) : (
                 <GraduationCap size={16} />
               )}
-              {saving ? "Submitting..." : "Submit Admission"}
+              {saving
+                ? "Submitting..."
+                : checkingDuplicate
+                  ? "Checking Number..."
+                  : duplicateLead
+                    ? "Duplicate Number Found"
+                    : "Submit Admission"}
             </button>
           </form>
         </div>
