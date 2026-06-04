@@ -21,6 +21,7 @@ import {
 } from "../../services/cache";
 import { QUEUES } from "../../plugins/bullmq";
 import { findDuplicateLeads } from "./service";
+import { deleteFile, getStorageKeyFromUrl } from "../../storage";
 
 export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
   // Order matters — specific routes before parameterized routes
@@ -40,10 +41,17 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
       if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
         return reply.status(400).send({
           success: false,
-          error: { code: "INVALID_PHONE", message: "Provide a valid 10-digit Indian mobile number" },
+          error: {
+            code: "INVALID_PHONE",
+            message: "Provide a valid 10-digit Indian mobile number",
+          },
         });
       }
-      const leads = await findDuplicateLeads({ phone, email: null, prisma: fastify.prisma });
+      const leads = await findDuplicateLeads({
+        phone,
+        email: null,
+        prisma: fastify.prisma,
+      });
       return reply.status(200).send({ success: true, data: { leads } });
     },
   );
@@ -235,7 +243,10 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
       if (!app) {
         return reply.status(404).send({
           success: false,
-          error: { code: "NOT_FOUND", message: "Confirmed application not found" },
+          error: {
+            code: "NOT_FOUND",
+            message: "Confirmed application not found",
+          },
         });
       }
 
@@ -288,7 +299,10 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
       if (!app) {
         return reply.status(404).send({
           success: false,
-          error: { code: "NOT_FOUND", message: "Confirmed application not found" },
+          error: {
+            code: "NOT_FOUND",
+            message: "Confirmed application not found",
+          },
         });
       }
 
@@ -349,16 +363,56 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
-      const doc = await fastify.prisma.leadDocument.create({
-        data: {
-          confirmedApplicationId:
-            confirmedApplicationId || lead.confirmedApplication.id,
+      const targetConfirmedApplicationId =
+        confirmedApplicationId || lead.confirmedApplication.id;
+
+      const previousDocs = await fastify.prisma.leadDocument.findMany({
+        where: {
+          confirmedApplicationId: targetConfirmedApplicationId,
           documentTypeId,
-          fileUrl,
-          fileName,
         },
-        include: { documentType: true },
+        select: { id: true, fileUrl: true },
       });
+
+      const doc = await fastify.prisma.$transaction(async (tx) => {
+        if (previousDocs.length > 0) {
+          await tx.leadDocument.deleteMany({
+            where: {
+              confirmedApplicationId: targetConfirmedApplicationId,
+              documentTypeId,
+            },
+          });
+        }
+
+        return tx.leadDocument.create({
+          data: {
+            confirmedApplicationId: targetConfirmedApplicationId,
+            documentTypeId,
+            fileUrl,
+            fileName,
+          },
+          include: { documentType: true },
+        });
+      });
+
+      for (const previousDoc of previousDocs) {
+        const storageKey = getStorageKeyFromUrl(previousDoc.fileUrl);
+        if (!storageKey) continue;
+
+        try {
+          await deleteFile(storageKey);
+        } catch (error) {
+          fastify.log.warn(
+            {
+              error,
+              storageKey,
+              documentTypeId,
+              confirmedApplicationId: targetConfirmedApplicationId,
+            },
+            "Failed to delete replaced document file",
+          );
+        }
+      }
 
       return reply.status(201).send({ success: true, data: doc });
     },
@@ -406,10 +460,16 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
       // Pre-fetch courses and source types for name→id resolution
       const [allCourses, allSources] = await Promise.all([
         fastify.prisma.course.findMany({ select: { id: true, name: true } }),
-        fastify.prisma.leadSourceType.findMany({ select: { id: true, name: true } }),
+        fastify.prisma.leadSourceType.findMany({
+          select: { id: true, name: true },
+        }),
       ]);
-      const courseMap = new Map(allCourses.map((c) => [c.name.toLowerCase().trim(), c.id]));
-      const sourceMap = new Map(allSources.map((s) => [s.name.toLowerCase().trim(), s.id]));
+      const courseMap = new Map(
+        allCourses.map((c) => [c.name.toLowerCase().trim(), c.id]),
+      );
+      const sourceMap = new Map(
+        allSources.map((s) => [s.name.toLowerCase().trim(), s.id]),
+      );
 
       // Fuzzy lookup: exact first, then contains fallback
       function resolveCourseId(name: string): string | undefined {
@@ -480,20 +540,22 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
               fatherName: row.fatherName ?? null,
               alternatePhone: row.alternatePhone ?? null,
               whatsappNumber: row.whatsappNumber ?? null,
-              gender: row.gender as any ?? null,
-              maritalStatus: row.maritalStatus as any ?? null,
+              gender: (row.gender as any) ?? null,
+              maritalStatus: (row.maritalStatus as any) ?? null,
               dateOfBirth: row.dateOfBirth ? new Date(row.dateOfBirth) : null,
               city: row.city ?? null,
               district: row.district ?? null,
               state: row.state ?? null,
               village: row.village ?? null,
               sector: row.sector ?? null,
-              qualification: row.qualification as any ?? null,
+              qualification: (row.qualification as any) ?? null,
               schoolCollege: row.schoolCollege ?? null,
               boardUniversity: row.boardUniversity ?? null,
               passingYear: row.passingYear ? Number(row.passingYear) : null,
               percentage: row.percentage ? Number(row.percentage) : null,
-              pcmPcbPercentage: row.pcmPcbPercentage ? Number(row.pcmPcbPercentage) : null,
+              pcmPcbPercentage: row.pcmPcbPercentage
+                ? Number(row.pcmPcbPercentage)
+                : null,
               sourceId,
               purpose: row.purpose ?? null,
               remarks: row.remarks ?? null,
@@ -560,10 +622,10 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
 
       const isFormComplete = Boolean(
         (body["aadharNo"] || existing?.aadharNo) &&
-          (body["fatherOccupation"] ||
-            existing?.fatherOccupation ||
-            existing?.motherName ||
-            body["motherName"]),
+        (body["fatherOccupation"] ||
+          existing?.fatherOccupation ||
+          existing?.motherName ||
+          body["motherName"]),
       );
 
       const updated = await fastify.prisma.confirmedApplication.upsert({
@@ -639,7 +701,10 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
       if (!lead.confirmedApplication) {
         return reply.status(400).send({
           success: false,
-          error: { code: "FORM_INCOMPLETE", message: "Admission form not started yet" },
+          error: {
+            code: "FORM_INCOMPLETE",
+            message: "Admission form not started yet",
+          },
         });
       }
 
