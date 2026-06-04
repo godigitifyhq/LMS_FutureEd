@@ -78,6 +78,8 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
           email: true,
           fatherName: true,
           dateOfBirth: true,
+          gender: true,
+          maritalStatus: true,
           city: true,
           district: true,
           state: true,
@@ -615,6 +617,27 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
         }
       }
 
+      const leadUpdateData: Record<string, unknown> = {};
+      if (Object.prototype.hasOwnProperty.call(raw, "gender")) {
+        const gender = typeof raw.gender === "string" ? raw.gender : "";
+        const normalizedGender =
+          gender === "MALE" || gender === "FEMALE" || gender === "OTHER"
+            ? gender
+            : null;
+        leadUpdateData["gender"] = normalizedGender;
+        body["gender"] = normalizedGender;
+      }
+      if (Object.prototype.hasOwnProperty.call(raw, "maritalStatus")) {
+        const maritalStatus =
+          typeof raw.maritalStatus === "string" ? raw.maritalStatus : "";
+        const normalizedMaritalStatus =
+          maritalStatus === "SINGLE" || maritalStatus === "MARRIED"
+            ? maritalStatus
+            : null;
+        leadUpdateData["maritalStatus"] = normalizedMaritalStatus;
+        body["maritalStatus"] = normalizedMaritalStatus;
+      }
+
       const existing = await fastify.prisma.confirmedApplication.findUnique({
         where: { leadId },
         select: { aadharNo: true, fatherOccupation: true, motherName: true },
@@ -628,22 +651,31 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
           body["motherName"]),
       );
 
-      const updated = await fastify.prisma.confirmedApplication.upsert({
-        where: { leadId },
-        create: {
-          leadId,
-          ...(body as any),
-          isFormComplete,
-        },
-        update: {
-          ...(body as any),
-          isFormComplete,
-        },
-        include: {
-          academicRecords: true,
-          entranceExams: true,
-          documents: { include: { documentType: true } },
-        },
+      const updated = await fastify.prisma.$transaction(async (tx) => {
+        if (Object.keys(leadUpdateData).length > 0) {
+          await tx.lead.update({
+            where: { id: leadId },
+            data: leadUpdateData,
+          });
+        }
+
+        return tx.confirmedApplication.upsert({
+          where: { leadId },
+          create: {
+            leadId,
+            ...(body as any),
+            isFormComplete,
+          },
+          update: {
+            ...(body as any),
+            isFormComplete,
+          },
+          include: {
+            academicRecords: true,
+            entranceExams: true,
+            documents: { include: { documentType: true } },
+          },
+        });
       });
 
       return reply.status(200).send({ success: true, data: updated });
@@ -672,6 +704,8 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
           city: true,
           district: true,
           state: true,
+          gender: true,
+          maritalStatus: true,
           qualification: true,
           schoolCollege: true,
           boardUniversity: true,

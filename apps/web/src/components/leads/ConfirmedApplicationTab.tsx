@@ -30,6 +30,8 @@ import { LeadStatus } from "@lms/types";
 type FormState = {
   aadharNo: string;
   apaarId: string;
+  gender: string;
+  maritalStatus: string;
   fatherName: string;
   motherName: string;
   motherOccupation: string;
@@ -107,6 +109,8 @@ const emptyAcademic: AcademicRow = {
 const emptyForm: FormState = {
   aadharNo: "",
   apaarId: "",
+  gender: "",
+  maritalStatus: "",
   fatherName: "",
   motherName: "",
   motherOccupation: "",
@@ -447,6 +451,9 @@ export function ConfirmedApplicationTab({
     setForm({
       aadharNo: app.aadharNo ?? "",
       apaarId: app.apaarId ?? "",
+      gender: ((app as Record<string, unknown>)["gender"] as string) ?? "",
+      maritalStatus:
+        ((app as Record<string, unknown>)["maritalStatus"] as string) ?? "",
       fatherName:
         ((app as Record<string, unknown>)["fatherName"] as string) ?? "",
       motherName: app.motherName ?? "",
@@ -459,7 +466,8 @@ export function ConfirmedApplicationTab({
       nationality: app.nationality ?? "Indian",
       religion: app.religion ?? "",
       category: app.category ?? "",
-      postalAddress: ((app as Record<string, unknown>)["postalAddress"] as string) ?? "",
+      postalAddress:
+        ((app as Record<string, unknown>)["postalAddress"] as string) ?? "",
       permanentAddress: app.permanentAddress ?? "",
       permanentPhone: app.permanentPhone ?? "",
       localGuardianName: app.localGuardianName ?? "",
@@ -707,6 +715,60 @@ export function ConfirmedApplicationTab({
         </div>
       </Section>
 
+      <Section title="Personal Details">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Gender
+            </label>
+            {readOnly ? (
+              <div className="w-full min-h-10 px-3 py-2 rounded-lg border border-surface-200 bg-surface-50 text-sm text-gray-700 flex items-center">
+                {form.gender || "—"}
+              </div>
+            ) : (
+              <select
+                value={form.gender}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, gender: e.target.value }))
+                }
+                className="w-full px-3 py-2 rounded-lg border border-surface-200 text-sm outline-none focus:border-primary bg-white"
+                aria-label="Gender"
+                title="Gender"
+              >
+                <option value="">Select gender</option>
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+              </select>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Marital Status
+            </label>
+            {readOnly ? (
+              <div className="w-full min-h-10 px-3 py-2 rounded-lg border border-surface-200 bg-surface-50 text-sm text-gray-700 flex items-center">
+                {form.maritalStatus || "—"}
+              </div>
+            ) : (
+              <select
+                value={form.maritalStatus}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, maritalStatus: e.target.value }))
+                }
+                className="w-full px-3 py-2 rounded-lg border border-surface-200 text-sm outline-none focus:border-primary bg-white"
+                aria-label="Marital status"
+                title="Marital status"
+              >
+                <option value="">Select marital status</option>
+                <option value="SINGLE">Single</option>
+                <option value="MARRIED">Married</option>
+              </select>
+            )}
+          </div>
+        </div>
+      </Section>
+
       {/* Family */}
       <Section title="Family Background">
         <div className="space-y-4">
@@ -737,8 +799,16 @@ export function ConfirmedApplicationTab({
           {/* Other */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="No. of Sisters" type="number" {...f("noOfSisters")} />
-              <Field label="No. of Brothers" type="number" {...f("noOfBrothers")} />
+              <Field
+                label="No. of Sisters"
+                type="number"
+                {...f("noOfSisters")}
+              />
+              <Field
+                label="No. of Brothers"
+                type="number"
+                {...f("noOfBrothers")}
+              />
             </div>
             <Field label="Nationality" {...f("nationality")} />
             <Field label="Religion" {...f("religion")} />
@@ -801,7 +871,7 @@ export function ConfirmedApplicationTab({
           <Field label="Local Guardian's Phone" {...f("localGuardianPhone")} />
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
-              Local Guardian's Address
+              Local Guardian&apos;s Address
             </label>
             {readOnly ? (
               <div className="w-full min-h-14 px-3 py-2 rounded-lg border border-surface-200 bg-surface-50 text-sm text-gray-700 whitespace-pre-wrap">

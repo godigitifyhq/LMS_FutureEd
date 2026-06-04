@@ -199,6 +199,8 @@ export async function createLeadRoute(fastify: FastifyInstance): Promise<void> {
             email: body.email ?? null,
             alternatePhone: body.alternatePhone ?? null,
             whatsappNumber: body.whatsappNumber ?? null,
+            gender: (body.gender ?? null) as any,
+            maritalStatus: (body.maritalStatus ?? null) as any,
             sourceId: body.sourceId ?? null,
             sourceOther: body.sourceOther ?? null,
             qualification: (body.qualification ?? null) as any,

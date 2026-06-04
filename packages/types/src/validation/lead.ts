@@ -65,8 +65,14 @@ export const CreateLeadSchema = z.object({
   state: z.string().trim().max(100).optional(),
 
   // Optional demographics
-  gender: z.nativeEnum(Gender).optional(),
-  maritalStatus: z.nativeEnum(MaritalStatus).optional(),
+  gender: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.nativeEnum(Gender).optional(),
+  ),
+  maritalStatus: z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.nativeEnum(MaritalStatus).optional(),
+  ),
 
   // Optional follow-up (allow null from clients)
   nextFollowUpAt: z.string().datetime().nullable().optional(),

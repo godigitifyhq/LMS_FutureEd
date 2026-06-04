@@ -416,6 +416,10 @@ model ConfirmedApplication {
   aadharNo String?
   apaarId  String? // Apaar / ABC ID
 
+  // Demographics captured in the confirmed application
+  gender        Gender?
+  maritalStatus MaritalStatus?
+
   // Family background
   motherName       String?
   motherOccupation String?
