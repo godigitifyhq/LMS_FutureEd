@@ -1,8 +1,10 @@
 import type { FastifyInstance } from "fastify";
+import path from "path";
 import { z } from "zod";
 import { Gender, LeadStatus, MaritalStatus } from "@lms/types";
 import { validateBody } from "../../middleware/validate";
 import { findDuplicateLeads } from "./service";
+import { uploadFile } from "../../storage";
 
 const PublicDirectAdmissionSchema = z.object({
   studentName: z.string().trim().min(2, "Student name is required"),
@@ -449,4 +451,88 @@ export async function publicDirectAdmissionRoute(
       },
     });
   });
+
+  // POST /public/direct-admission/:leadId/documents
+  // Upload a supporting document for a submitted public admission (no auth required)
+  fastify.post(
+    "/public/direct-admission/:leadId/documents",
+    async (request, reply) => {
+      const { leadId } = request.params as { leadId: string };
+      const { documentType } = request.query as { documentType?: string };
+
+      const lead = await fastify.prisma.lead.findUnique({
+        where: { id: leadId },
+        select: { id: true, confirmedApplication: { select: { id: true } } },
+      });
+
+      if (!lead?.confirmedApplication) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Application not found" },
+        });
+      }
+
+      const fileData = await request.file();
+      if (!fileData) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "INVALID_INPUT", message: "No file provided" },
+        });
+      }
+
+      const ALLOWED_TYPES = [
+        "application/pdf",
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+      ];
+      if (!ALLOWED_TYPES.includes(fileData.mimetype)) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "INVALID_FILE_TYPE",
+            message: "Only PDF, JPG, and PNG files are allowed",
+          },
+        });
+      }
+
+      const buffer = await fileData.toBuffer();
+      if (buffer.length > 10 * 1024 * 1024) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "FILE_TOO_LARGE", message: "File must be under 10 MB" },
+        });
+      }
+
+      const ext = path.extname(fileData.filename || "file");
+      const fileName = `${Date.now()}-pub-doc${ext}`;
+      const result = await uploadFile({
+        buffer,
+        fileName,
+        mimeType: fileData.mimetype,
+        folder: "documents",
+      });
+
+      const docTypeName = (documentType || "Other").trim().slice(0, 100);
+      let docType = await fastify.prisma.documentType.findFirst({
+        where: { name: docTypeName },
+      });
+      if (!docType) {
+        docType = await fastify.prisma.documentType.create({
+          data: { name: docTypeName, isRequired: false, isActive: true },
+        });
+      }
+
+      const document = await fastify.prisma.leadDocument.create({
+        data: {
+          confirmedApplicationId: lead.confirmedApplication.id,
+          documentTypeId: docType.id,
+          fileUrl: result.url,
+          fileName: fileData.filename || fileName,
+        },
+      });
+
+      return reply.status(201).send({ success: true, data: { id: document.id } });
+    },
+  );
 }
