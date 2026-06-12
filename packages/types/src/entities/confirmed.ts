@@ -73,6 +73,7 @@ export type ConfirmedApplication = {
   dueDate: Date | null;
   extraCurricular: string | null;
   authorisedBy: string | null;
+  remarks: string | null;
   admissionId: string | null;
   fileNumber: string | null;
   isFormComplete: boolean;

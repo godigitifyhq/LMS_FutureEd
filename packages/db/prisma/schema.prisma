@@ -455,6 +455,7 @@ model ConfirmedApplication {
   // Extras
   extraCurricular String?
   authorisedBy    String?
+  remarks         String?
 
   // Father's name (collected on admission form, separate from lead.fatherName)
   fatherName  String?

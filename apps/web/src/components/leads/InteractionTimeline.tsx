@@ -12,6 +12,7 @@ import {
   ArrowRightLeft,
   Pencil,
   AlertCircle,
+  StickyNote,
 } from "lucide-react";
 import { InteractionType, Role } from "@lms/types";
 import { useEditInteraction } from "@/hooks/useLeadDetail";
@@ -48,6 +49,7 @@ type Interaction = {
 type Props = {
   interactions: Interaction[];
   leadId: string;
+  remarks?: string | null;
 };
 
 const TYPE_CONFIG: Record<
@@ -281,10 +283,10 @@ function InteractionItem({
   );
 }
 
-export function InteractionTimeline({ interactions, leadId }: Props) {
+export function InteractionTimeline({ interactions, leadId, remarks }: Props) {
   const grouped = groupByDate(interactions);
 
-  if (interactions.length === 0) {
+  if (interactions.length === 0 && !remarks) {
     return (
       <div className="text-center py-10">
         <MessageSquare size={28} className="text-surface-300 mx-auto mb-2" />
@@ -295,6 +297,20 @@ export function InteractionTimeline({ interactions, leadId }: Props) {
 
   return (
     <div className="space-y-6">
+      {remarks && (
+        <div className="flex gap-3">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-amber-100 text-amber-600">
+            <StickyNote size={14} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-700">Import Remark</span>
+              <span className="text-xs px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded border border-amber-100">from Excel</span>
+            </div>
+            <p className="text-sm text-gray-600 mt-1 leading-relaxed">{remarks}</p>
+          </div>
+        </div>
+      )}
       {Object.entries(grouped).map(([date, items]) => (
         <div key={date}>
           {/* Date separator */}
