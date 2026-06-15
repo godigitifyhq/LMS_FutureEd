@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Users, CheckCircle2, TrendingUp, AlertTriangle } from "lucide-react";
+import { Users, CheckCircle2, TrendingUp, AlertTriangle, UserX } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { PipelineChart } from "./PipelineChart";
 import { ActivityFeed } from "./ActivityFeed";
@@ -11,6 +11,7 @@ import { LeadSourcesChart } from "./LeadSourcesChart";
 import { TrendChart } from "./TrendChart";
 import { PeriodSelector } from "./PeriodSelector";
 import { useDashboardOverview } from "@/hooks/useDashboard";
+import { useUnassignedLeads } from "@/hooks/useLeads";
 import type { Period } from "@/hooks/useDashboard";
 
 // Minimal summary shape returned by the dashboard hook — keep in-file to avoid
@@ -26,6 +27,7 @@ type DashboardSummary = {
 export function AdminDashboard() {
   const [period, setPeriod] = useState<Period>("last30");
   const { data, isLoading } = useDashboardOverview(period);
+  const { data: unassignedData, isLoading: unassignedLoading } = useUnassignedLeads();
   // data may be typed as an empty object by the hook; narrow it to a local shape for summary access
   const summary = (data as { summary?: DashboardSummary } | undefined)?.summary;
 
@@ -38,7 +40,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard
           title="Total Leads"
           value={summary?.totalLeadsInPeriod ?? 0}
@@ -86,6 +88,16 @@ export function AdminDashboard() {
           borderAccentClassName="border-l-green-600"
           loading={isLoading}
           href="/admissions"
+        />
+        <StatCard
+          title="Unassigned Leads"
+          value={unassignedData?.total ?? 0}
+          subtitle="need assignment"
+          icon={<UserX size={16} className="text-orange-600" />}
+          iconBg="bg-orange-50"
+          borderAccentClassName="border-l-orange-400"
+          loading={unassignedLoading}
+          href="/leads?assignedToId=unassigned"
         />
       </div>
 

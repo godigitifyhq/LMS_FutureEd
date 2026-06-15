@@ -80,22 +80,25 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
         fastify.prisma.user.count({ where }),
       ]);
 
-      // Attach confirmed count per user
-      const usersWithStats = await Promise.all(
-        users.map(async (user) => {
-          const confirmedCount = await fastify.prisma.lead.count({
-            where: { assignedToId: user.id, status: "CONFIRMED" },
-          });
-          return {
-            ...user,
-            stats: {
-              assignedLeads: user._count.assignedLeads,
-              confirmedLeads: confirmedCount,
-            },
-            _count: undefined,
-          };
-        }),
+      // Batch-fetch confirmed counts to avoid N+1 queries
+      const userIds = users.map((u) => u.id);
+      const confirmedGroups = await fastify.prisma.lead.groupBy({
+        by: ["assignedToId"],
+        where: { assignedToId: { in: userIds }, status: "CONFIRMED" },
+        _count: { _all: true },
+      });
+      const confirmedByUserId = Object.fromEntries(
+        confirmedGroups.map((g) => [g.assignedToId!, g._count._all]),
       );
+
+      const usersWithStats = users.map((user) => ({
+        ...user,
+        stats: {
+          assignedLeads: user._count.assignedLeads,
+          confirmedLeads: confirmedByUserId[user.id] ?? 0,
+        },
+        _count: undefined,
+      }));
 
       return reply.status(200).send({
         success: true,
@@ -378,7 +381,7 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
 
       const target = await fastify.prisma.user.findUnique({
         where: { id },
-        select: { id: true, isActive: true, role: true },
+        select: { id: true, isActive: true, role: true, branchId: true },
       });
 
       if (!target) {
@@ -386,6 +389,22 @@ export async function userRoutes(fastify: FastifyInstance): Promise<void> {
           success: false,
           error: { code: "NOT_FOUND", message: "User not found" },
         });
+      }
+
+      // Block deactivation if this is the last active ADMIN
+      if (target.role === "ADMIN") {
+        const activeAdminCount = await fastify.prisma.user.count({
+          where: { role: "ADMIN", isActive: true },
+        });
+        if (activeAdminCount <= 1) {
+          return reply.status(400).send({
+            success: false,
+            error: {
+              code: "LAST_ADMIN",
+              message: "Cannot deactivate the last active administrator",
+            },
+          });
+        }
       }
 
       if (!target.isActive) {

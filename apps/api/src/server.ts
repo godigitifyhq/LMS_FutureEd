@@ -73,12 +73,23 @@ export async function buildServer() {
 
   await fastify.register(registerRoutes);
 
+  // Serve public assets (logo, etc.) — available in all environments
+  {
+    const { join } = await import("path");
+    await fastify.register(import("@fastify/static"), {
+      root: join(process.cwd(), "public"),
+      prefix: "/public/",
+      decorateReply: false,
+    });
+  }
+
   // Serve uploaded files locally in development
   if (config.isDev) {
     const { join } = await import("path");
     await fastify.register(import("@fastify/static"), {
       root: join(process.cwd(), "uploads"),
       prefix: "/uploads/",
+      decorateReply: false,
     });
   }
 

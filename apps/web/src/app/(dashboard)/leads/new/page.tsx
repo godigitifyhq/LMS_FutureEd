@@ -158,12 +158,66 @@ export default function NewLeadPage() {
     });
   }
 
+  function blurValidate(field: string, value: string) {
+    const currentYear = new Date().getFullYear();
+    let msg = "";
+    if (field === "phone" && value && !value.match(/^[6-9]\d{9}$/))
+      msg = "Must be 10 digits starting with 6, 7, 8 or 9";
+    if (field === "alternatePhone" && value && !value.match(/^[6-9]\d{9}$/))
+      msg = "Must be 10 digits starting with 6, 7, 8 or 9";
+    if (field === "whatsappNumber" && value && !value.match(/^[6-9]\d{9}$/))
+      msg = "Must be 10 digits starting with 6, 7, 8 or 9";
+    if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+      msg = "Enter a valid email address";
+    if (field === "passingYear" && value) {
+      const yr = Number(value);
+      if (yr < 1960 || yr > currentYear + 1)
+        msg = `Year must be between 1960 and ${currentYear + 1}`;
+    }
+    if (field === "percentage" && value) {
+      const pct = Number(value);
+      if (pct < 0 || pct > 100) msg = "Must be between 0 and 100";
+    }
+    if (field === "nextFollowUpAt" && value && new Date(value) <= new Date())
+      msg = "Must be a future date and time";
+    if (msg) setErrors((prev) => ({ ...prev, [field]: msg }));
+  }
+
   function validate() {
     const errs: Record<string, string> = {};
+    const currentYear = new Date().getFullYear();
+
     if (!form.phone.match(/^[6-9]\d{9}$/))
-      errs["phone"] = "Enter valid 10-digit Indian number";
+      errs["phone"] = "Enter valid 10-digit Indian mobile number (starts with 6–9)";
     if (!form.studentName.trim())
       errs["studentName"] = "Student name is required";
+    if (form.dateOfBirth) {
+      const dob = new Date(form.dateOfBirth);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (dob >= today) errs["dateOfBirth"] = "Date of birth must be in the past";
+    }
+    if (form.alternatePhone && !form.alternatePhone.match(/^[6-9]\d{9}$/))
+      errs["alternatePhone"] = "Enter valid 10-digit Indian number";
+    if (form.whatsappNumber && !form.whatsappNumber.match(/^[6-9]\d{9}$/))
+      errs["whatsappNumber"] = "Enter valid 10-digit Indian number";
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      errs["email"] = "Enter a valid email address";
+    if (form.passingYear) {
+      const yr = Number(form.passingYear);
+      if (yr < 1960 || yr > currentYear + 1)
+        errs["passingYear"] = `Year must be between 1960 and ${currentYear + 1}`;
+    }
+    if (form.percentage) {
+      const pct = Number(form.percentage);
+      if (pct < 0 || pct > 100)
+        errs["percentage"] = "Percentage must be between 0 and 100";
+    }
+    if (form.nextFollowUpAt) {
+      if (new Date(form.nextFollowUpAt) <= new Date())
+        errs["nextFollowUpAt"] = "Follow-up must be scheduled in the future";
+    }
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -282,10 +336,13 @@ export default function NewLeadPage() {
             <Input
               label="Mobile Number"
               required
-              placeholder="10-digit mobile number"
+              type="tel"
+              placeholder="e.g. 9876543210"
               value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
+              onChange={(e) => set("phone", e.target.value.replace(/\D/g, ""))}
+              onBlur={(e) => blurValidate("phone", e.target.value)}
               error={errors["phone"]}
+              helperText={!errors["phone"] ? "10-digit Indian number starting with 6–9" : undefined}
               maxLength={10}
               inputMode="numeric"
             />
@@ -350,8 +407,11 @@ export default function NewLeadPage() {
                 required
                 placeholder="As per Matric record"
                 value={form.studentName}
-                onChange={(e) => set("studentName", e.target.value)}
+                onChange={(e) =>
+                  set("studentName", e.target.value.replace(/[^a-zA-Z\s.'"-]/g, ""))
+                }
                 error={errors["studentName"]}
+                helperText={!errors["studentName"] ? "Letters and spaces only" : undefined}
               />
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -360,6 +420,8 @@ export default function NewLeadPage() {
                   value={form.dateOfBirth}
                   onChange={(e) => set("dateOfBirth", e.target.value)}
                   error={errors["dateOfBirth"]}
+                  min="1940-01-01"
+                  max={new Date().toISOString().split("T")[0]}
                 />
                 <Input
                   label="Father's Name"
@@ -377,13 +439,19 @@ export default function NewLeadPage() {
                     onChange={(e) => set("gender", e.target.value)}
                     aria-label="Gender"
                     title="Gender"
-                    className="w-full px-3 py-2.5 rounded-lg border border-surface-200 text-sm outline-none focus:border-primary bg-white"
+                    className={cn(
+                      "w-full px-3 py-2.5 rounded-lg border text-sm outline-none focus:border-primary bg-white",
+                      errors["gender"] ? "border-red-400" : "border-surface-200",
+                    )}
                   >
                     <option value="">Select gender</option>
                     <option value={Gender.MALE}>Male</option>
                     <option value={Gender.FEMALE}>Female</option>
                     <option value={Gender.OTHER}>Other</option>
                   </select>
+                  {errors["gender"] && (
+                    <p className="mt-1 text-xs text-red-500">{errors["gender"]}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -394,12 +462,18 @@ export default function NewLeadPage() {
                     onChange={(e) => set("maritalStatus", e.target.value)}
                     aria-label="Marital status"
                     title="Marital status"
-                    className="w-full px-3 py-2.5 rounded-lg border border-surface-200 text-sm outline-none focus:border-primary bg-white"
+                    className={cn(
+                      "w-full px-3 py-2.5 rounded-lg border text-sm outline-none focus:border-primary bg-white",
+                      errors["maritalStatus"] ? "border-red-400" : "border-surface-200",
+                    )}
                   >
                     <option value="">Select marital status</option>
                     <option value={MaritalStatus.SINGLE}>Single</option>
                     <option value={MaritalStatus.MARRIED}>Married</option>
                   </select>
+                  {errors["maritalStatus"] && (
+                    <p className="mt-1 text-xs text-red-500">{errors["maritalStatus"]}</p>
+                  )}
                 </div>
               </div>
             </>
@@ -566,6 +640,11 @@ export default function NewLeadPage() {
                       placeholder="e.g. 2023"
                       value={form.passingYear}
                       onChange={(e) => set("passingYear", e.target.value)}
+                      onBlur={(e) => blurValidate("passingYear", e.target.value)}
+                      min="1960"
+                      max={new Date().getFullYear() + 1}
+                      error={errors["passingYear"]}
+                      helperText={!errors["passingYear"] ? `1960 – ${new Date().getFullYear() + 1}` : undefined}
                     />
                     <Input
                       label="Percentage/Marks %"
@@ -573,6 +652,12 @@ export default function NewLeadPage() {
                       placeholder="e.g. 75"
                       value={form.percentage}
                       onChange={(e) => set("percentage", e.target.value)}
+                      onBlur={(e) => blurValidate("percentage", e.target.value)}
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      error={errors["percentage"]}
+                      helperText={!errors["percentage"] ? "0 – 100" : undefined}
                     />
                   </div>
 
@@ -615,27 +700,47 @@ export default function NewLeadPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <Input
                       label="Alternate Mobile"
-                      placeholder="10-digit number"
+                      type="tel"
+                      placeholder="e.g. 9876543210"
                       value={form.alternatePhone}
-                      onChange={(e) => set("alternatePhone", e.target.value)}
+                      onChange={(e) =>
+                        set("alternatePhone", e.target.value.replace(/\D/g, ""))
+                      }
+                      onBlur={(e) => blurValidate("alternatePhone", e.target.value)}
                       maxLength={10}
                       inputMode="numeric"
+                      error={errors["alternatePhone"]}
+                      helperText={!errors["alternatePhone"] ? "10-digit number (optional)" : undefined}
                     />
                     <Input
                       label="WhatsApp Number"
-                      placeholder="10-digit number"
+                      type="tel"
+                      placeholder="e.g. 9876543210"
                       value={form.whatsappNumber}
-                      onChange={(e) => set("whatsappNumber", e.target.value)}
+                      onChange={(e) =>
+                        set("whatsappNumber", e.target.value.replace(/\D/g, ""))
+                      }
+                      onBlur={(e) => blurValidate("whatsappNumber", e.target.value)}
                       maxLength={10}
                       inputMode="numeric"
+                      error={errors["whatsappNumber"]}
+                      helperText={!errors["whatsappNumber"] ? "10-digit number (optional)" : undefined}
                     />
                     <Input
                       label="Email ID"
                       type="email"
                       placeholder="student@email.com"
                       value={form.email}
-                      onChange={(e) => set("email", e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        set("email", val);
+                        // auto-uncheck send email if email is cleared
+                        if (!val) setForm((prev) => ({ ...prev, email: val, sendEmail: false }));
+                      }}
+                      onBlur={(e) => blurValidate("email", e.target.value)}
                       className="col-span-2"
+                      error={errors["email"]}
+                      helperText={!errors["email"] ? "Optional — confirmation email will be sent here" : undefined}
                     />
                   </div>
                 </div>
@@ -653,19 +758,43 @@ export default function NewLeadPage() {
                   type="datetime-local"
                   value={form.nextFollowUpAt}
                   onChange={(e) => set("nextFollowUpAt", e.target.value)}
+                  onBlur={(e) => blurValidate("nextFollowUpAt", e.target.value)}
+                  min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
+                  error={errors["nextFollowUpAt"]}
+                  helperText={!errors["nextFollowUpAt"] ? "Must be a future date & time" : undefined}
                 />
               </div>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.sendEmail}
-                  onChange={(e) => set("sendEmail", e.target.checked)}
-                  className="accent-primary w-4 h-4"
-                />
-                <span className="text-sm text-gray-700">
-                  Send email notification to student
-                </span>
-              </label>
+              {(() => {
+                const hasEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+                return (
+                  <label
+                    className={cn(
+                      "flex items-center gap-3",
+                      hasEmail ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.sendEmail && hasEmail}
+                      onChange={(e) => set("sendEmail", e.target.checked)}
+                      disabled={!hasEmail}
+                      className="accent-primary w-4 h-4 disabled:cursor-not-allowed"
+                    />
+                    <div>
+                      <span className={cn("text-sm font-medium", hasEmail ? "text-gray-700" : "text-gray-400")}>
+                        {hasEmail
+                          ? "Send enquiry confirmation to student"
+                          : "Send email notification to student"}
+                      </span>
+                      {!hasEmail && (
+                        <p className="text-xs text-amber-600 mt-0.5">
+                          Enter a valid email above to enable this
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                );
+              })()}
             </div>
 
             {/* Actions */}

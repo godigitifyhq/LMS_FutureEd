@@ -9,6 +9,9 @@ import {
   sendFollowUpReminderEmail,
   sendApplicationConfirmationEmail,
   sendAdmissionFormEmail,
+  sendMetaLeadFormEmail,
+  sendWhatsAppLeadEmail,
+  sendLeadCreatedEmail,
 } from "../services/email";
 import { config } from "../config";
 
@@ -90,13 +93,45 @@ export function startNotificationWorker(connection: Redis): Worker {
           });
           break;
 
+        case "lead-created-email":
+          await sendLeadCreatedEmail({
+            to: data.to,
+            studentName: data.studentName,
+            leadId: data.leadId,
+          });
+          break;
+
+        case "meta-lead-form-assigned":
+          await sendMetaLeadFormEmail({
+            to: data.to,
+            employeeName: data.employeeName,
+            studentName: data.studentName,
+            phone: data.phone,
+            email: data.email ?? null,
+            leadUrl: data.leadUrl,
+            adName: data.adName ?? null,
+          });
+          break;
+
+        case "whatsapp-lead-assigned":
+          await sendWhatsAppLeadEmail({
+            to: data.to,
+            employeeName: data.employeeName,
+            studentName: data.studentName,
+            phone: data.phone,
+            firstMessage: data.firstMessage ?? null,
+            timestamp: data.timestamp ?? null,
+            leadUrl: data.leadUrl,
+          });
+          break;
+
         default:
           console.log(`Unknown job: ${name}`);
       }
     },
     {
       connection,
-      concurrency: 3,
+      concurrency: 1,
     },
   );
 

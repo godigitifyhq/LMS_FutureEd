@@ -26,7 +26,9 @@ type Props = {
 export function LeadFilters({ filters, onChange, onReset }: Props) {
   const { user } = useAuthStore();
   const isManager = user?.role === Role.ADMIN || user?.role === Role.SUB_ADMIN;
-  const [showMore, setShowMore] = useState(false);
+  const [showMore, setShowMore] = useState(
+    () => !!filters.assignedToId || !!filters.status || !!filters.sourceId,
+  );
 
   const selectedYear = filters.dateFrom?.slice(0, 4) ?? "";
 
@@ -45,7 +47,7 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
     queryFn: async () => {
       const { data } = await api.get<{
         data: Array<{ id: string; name: string }>;
-      }>("/leads/sources");
+      }>("/settings/sources");
       return data.data;
     },
     staleTime: 60_000,

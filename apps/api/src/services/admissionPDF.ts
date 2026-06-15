@@ -179,6 +179,7 @@ export async function generateAdmissionPDF(lead: any): Promise<Buffer> {
       .lineWidth(0.5)
       .stroke();
     if (photoBuffer) {
+      let photoRendered = false;
       try {
         doc.save();
         doc.rect(LEFT + W - PHOTO_W + 1, 41, PHOTO_W - 2, HDR_H - 2).clip();
@@ -187,21 +188,21 @@ export async function generateAdmissionPDF(lead: any): Promise<Buffer> {
           height: HDR_H - 2,
           cover: [PHOTO_W - 2, HDR_H - 2],
         });
-        doc.restore();
+        photoRendered = true;
       } catch {
+        // image failed — fall through to placeholder
+      } finally {
+        doc.restore(); // always restore graphics state regardless of success/failure
+      }
+      if (!photoRendered) {
         doc
           .fillColor("#aaa")
           .fontSize(7)
           .font("Helvetica")
-          .text(
-            "Photo unavailable",
-            LEFT + W - PHOTO_W + 2,
-            40 + HDR_H / 2 - 4,
-            {
-              width: PHOTO_W - 4,
-              align: "center",
-            },
-          );
+          .text("Photo unavailable", LEFT + W - PHOTO_W + 2, 40 + HDR_H / 2 - 4, {
+            width: PHOTO_W - 4,
+            align: "center",
+          });
       }
     } else {
       const midY = 40 + HDR_H / 2;
@@ -303,7 +304,7 @@ export async function generateAdmissionPDF(lead: any): Promise<Buffer> {
       .text("Name of the Applicant (as per Matric record):", LEFT + 4, y + 3);
     y += 14;
 
-    const name = (lead.studentName ?? "").toUpperCase().padEnd(30, " ");
+    const name = (lead.studentName ?? "").toUpperCase().slice(0, 30).padEnd(30, " ");
     const boxW = Math.floor(W / 30);
     for (let i = 0; i < 30; i++) {
       doc

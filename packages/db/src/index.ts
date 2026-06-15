@@ -1,5 +1,5 @@
 ﻿// @lms/db - Prisma client and schema
-export { PrismaClient } from "./generated/client";
+export { PrismaClient, Prisma } from "./generated/client";
 export type {
   Lead,
   User,

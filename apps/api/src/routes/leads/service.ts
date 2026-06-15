@@ -43,6 +43,10 @@ export const leadSummarySelect = {
       isFormComplete: true,
     },
   },
+  // Meta/WhatsApp source indicators — used for source badges in UI
+  isFromWhatsApp: true,
+  metaLeadgenId: true,
+  metaAdName: true,
 } as const
 
 export const leadDetailSelect = {
@@ -69,6 +73,10 @@ export const leadDetailSelect = {
   duplicateOfId: true,
   branchId: true,
   branch: { select: { id: true, name: true, city: true } },
+  // WhatsApp message detail — shown in lead detail WA panel
+  waContactId: true,
+  waFirstMessage: true,
+  waMessageType: true,
 } as const
 
 // ── Build WHERE clause based on role + filters ──
@@ -124,7 +132,11 @@ export function buildLeadWhereClause(params: {
   }
 
   // ── Other filters ──
-  if (filters.assignedToId) andClauses.push({ assignedToId: filters.assignedToId })
+  if (filters.assignedToId === 'unassigned') {
+    andClauses.push({ assignedToId: null })
+  } else if (filters.assignedToId) {
+    andClauses.push({ assignedToId: filters.assignedToId })
+  }
   if (filters.sourceId)     andClauses.push({ sourceId: filters.sourceId })
   if (filters.branchId)     andClauses.push({ branchId: filters.branchId })
 
@@ -166,11 +178,15 @@ export async function findDuplicateLeads(params: {
   email: string | null | undefined
   prisma: PrismaClient
 }) {
+  const emailLower = params.email?.toLowerCase().trim() || null
   return params.prisma.lead.findMany({
     where: {
       OR: [
         { phone: params.phone },
-        ...(params.email ? [{ email: params.email }] : []),
+        // Case-insensitive email match to catch ARYAN@gmail.com == aryan@gmail.com
+        ...(emailLower
+          ? [{ email: { equals: emailLower, mode: 'insensitive' as const } }]
+          : []),
       ],
     },
     select: {

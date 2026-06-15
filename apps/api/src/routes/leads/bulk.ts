@@ -97,11 +97,13 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
       const { id: userId } = request.user;
       const successful: string[] = [];
       const failed: Array<{ id: string; reason: string }> = [];
+      const statusBefore: Record<string, LeadStatus> = {};
 
       for (const lead of leads) {
         const result = transitionLead(lead.status as LeadStatus, toStatus);
         if (result.success) {
           successful.push(lead.id);
+          statusBefore[lead.id] = lead.status as LeadStatus;
         } else {
           failed.push({ id: lead.id, reason: result.error.message });
         }
@@ -120,6 +122,7 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
               userId,
               type: "STATUS_CHANGED" as const,
               note: note ?? "Bulk status change",
+              statusBefore: statusBefore[leadId],
               statusAfter: toStatus,
             })),
           });

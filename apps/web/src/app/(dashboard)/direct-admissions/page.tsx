@@ -184,17 +184,34 @@ function Field({
   label,
   value,
   onChange,
+  onBlur,
   type = "text",
   placeholder,
   textarea = false,
+  error,
+  helperText,
+  min,
+  max,
+  maxLength,
+  inputMode,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onBlur?: () => void;
   type?: string;
   placeholder?: string;
   textarea?: boolean;
+  error?: string;
+  helperText?: string;
+  min?: string | number;
+  max?: string | number;
+  maxLength?: number;
+  inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
+  const borderCls = error
+    ? "border-red-400 bg-red-50 focus:border-red-500"
+    : "border-surface-200 focus:border-primary";
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-gray-600">
@@ -207,7 +224,8 @@ function Field({
           value={value}
           rows={2}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full resize-none rounded-lg border border-surface-200 px-3 py-2 text-sm outline-none focus:border-primary"
+          onBlur={onBlur}
+          className={`w-full resize-none rounded-lg border px-3 py-2 text-sm outline-none ${borderCls}`}
         />
       ) : (
         <input
@@ -216,9 +234,16 @@ function Field({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg border border-surface-200 px-3 py-2 text-sm outline-none focus:border-primary"
+          onBlur={onBlur}
+          min={min}
+          max={max}
+          maxLength={maxLength}
+          inputMode={inputMode}
+          className={`w-full rounded-lg border px-3 py-2 text-sm outline-none ${borderCls}`}
         />
       )}
+      {error && <p className="mt-0.5 text-xs text-red-500">{error}</p>}
+      {!error && helperText && <p className="mt-0.5 text-xs text-gray-400">{helperText}</p>}
     </div>
   );
 }
@@ -277,26 +302,78 @@ export default function DirectAdmissionsPage() {
   const [docError, setDocError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [submittedLeadId, setSubmittedLeadId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function f(field: keyof FormState) {
     return {
       value: form[field],
-      onChange: (v: string) => setForm((p) => ({ ...p, [field]: v })),
+      onChange: (v: string) => {
+        setForm((p) => ({ ...p, [field]: v }));
+        setFormErrors((p) => { const n = { ...p }; delete n[field]; return n; });
+      },
     };
+  }
+
+  function phoneField(field: keyof FormState) {
+    return {
+      value: form[field],
+      onChange: (v: string) => {
+        const digits = v.replace(/\D/g, "");
+        setForm((p) => ({ ...p, [field]: digits }));
+        setFormErrors((p) => { const n = { ...p }; delete n[field]; return n; });
+      },
+      onBlur: () => blurValidateField(field, form[field]),
+      type: "tel" as const,
+      inputMode: "numeric" as const,
+      maxLength: 10,
+      helperText: !formErrors[field] ? "10-digit number starting with 6–9" : undefined,
+      error: formErrors[field],
+    };
+  }
+
+  function blurValidateField(field: string, value: string) {
+    let msg = "";
+    const phoneFields = ["phone", "permanentPhone", "localGuardianPhone"];
+    if (phoneFields.includes(field) && value && !value.match(/^[6-9]\d{9}$/))
+      msg = "Must be 10 digits starting with 6, 7, 8 or 9";
+    if (field === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
+      msg = "Enter a valid email address";
+    if (field === "aadharNo" && value && !/^\d{12}$/.test(value))
+      msg = "Aadhar must be exactly 12 digits";
+    if (msg) setFormErrors((p) => ({ ...p, [field]: msg }));
   }
 
   function handleNext() {
     if (stage === 1) {
-      if (!form.studentName.trim() || form.studentName.trim().length < 2) {
-        toast.error("Student name must be at least 2 characters");
-        return;
-      }
-      if (!form.phone.match(/^[6-9]\d{9}$/)) {
-        toast.error("Enter a valid 10-digit Indian mobile number (starts with 6-9)");
+      const errs: Record<string, string> = {};
+      if (!form.studentName.trim() || form.studentName.trim().length < 2)
+        errs["studentName"] = "Name must be at least 2 characters";
+      if (!form.phone.match(/^[6-9]\d{9}$/))
+        errs["phone"] = "Enter a valid 10-digit Indian mobile number (starts with 6–9)";
+      if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+        errs["email"] = "Enter a valid email address";
+      if (form.aadharNo && !/^\d{12}$/.test(form.aadharNo))
+        errs["aadharNo"] = "Aadhar must be exactly 12 digits";
+      if (Object.keys(errs).length > 0) {
+        setFormErrors(errs);
+        toast.error("Please fix the errors before continuing");
         return;
       }
     }
+    if (stage === 2) {
+      const errs: Record<string, string> = {};
+      if (form.permanentPhone && !form.permanentPhone.match(/^[6-9]\d{9}$/))
+        errs["permanentPhone"] = "Must be 10 digits starting with 6–9";
+      if (form.localGuardianPhone && !form.localGuardianPhone.match(/^[6-9]\d{9}$/))
+        errs["localGuardianPhone"] = "Must be 10 digits starting with 6–9";
+      if (Object.keys(errs).length > 0) {
+        setFormErrors(errs);
+        toast.error("Please fix the errors before continuing");
+        return;
+      }
+    }
+    setFormErrors({});
     setStage((s) => (Math.min(s + 1, 3) as 1 | 2 | 3));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -546,17 +623,33 @@ export default function DirectAdmissionsPage() {
                     label="Student Name *"
                     placeholder="Full name"
                     {...f("studentName")}
+                    onChange={(v) => {
+                      const clean = v.replace(/[^a-zA-Z\s.'"-]/g, "");
+                      setForm((p) => ({ ...p, studentName: clean }));
+                      setFormErrors((p) => { const n = { ...p }; delete n["studentName"]; return n; });
+                    }}
+                    error={formErrors["studentName"]}
+                    helperText={!formErrors["studentName"] ? "Letters only" : undefined}
                   />
                   <Field
                     label="Phone *"
-                    placeholder="10-digit mobile (starts with 6-9)"
-                    {...f("phone")}
+                    placeholder="e.g. 9876543210"
+                    {...phoneField("phone")}
                   />
-                  <Field label="Email" type="email" {...f("email")} />
+                  <Field
+                    label="Email"
+                    type="email"
+                    {...f("email")}
+                    onBlur={() => blurValidateField("email", form.email)}
+                    error={formErrors["email"]}
+                    helperText={!formErrors["email"] ? "Optional" : undefined}
+                  />
                   <Field
                     label="Date of Birth"
                     type="date"
                     {...f("dateOfBirth")}
+                    min="1940-01-01"
+                    max={new Date().toISOString().split("T")[0]}
                   />
                   <div>
                     <label className="mb-1 block text-xs font-medium text-gray-600">
@@ -587,6 +680,16 @@ export default function DirectAdmissionsPage() {
                     label="Aadhar Number"
                     placeholder="12-digit Aadhar"
                     {...f("aadharNo")}
+                    onChange={(v) => {
+                      const digits = v.replace(/\D/g, "");
+                      setForm((p) => ({ ...p, aadharNo: digits }));
+                      setFormErrors((p) => { const n = { ...p }; delete n["aadharNo"]; return n; });
+                    }}
+                    onBlur={() => blurValidateField("aadharNo", form.aadharNo)}
+                    maxLength={12}
+                    inputMode="numeric"
+                    error={formErrors["aadharNo"]}
+                    helperText={!formErrors["aadharNo"] ? "12 digits, no spaces" : undefined}
                   />
                   <Field
                     label="Apaar / ABC ID"
@@ -701,14 +804,14 @@ export default function DirectAdmissionsPage() {
                     textarea
                     {...f("permanentAddress")}
                   />
-                  <Field label="Permanent Phone" {...f("permanentPhone")} />
+                  <Field label="Permanent Phone" {...phoneField("permanentPhone")} />
                   <Field
                     label="Local Guardian's Name"
                     {...f("localGuardianName")}
                   />
                   <Field
                     label="Local Guardian's Phone"
-                    {...f("localGuardianPhone")}
+                    {...phoneField("localGuardianPhone")}
                   />
                   <Field
                     label="Local Guardian's Address"
@@ -769,18 +872,30 @@ export default function DirectAdmissionsPage() {
                                   value={rec[field]}
                                   title={`${label} – ${field}`}
                                   type={
-                                    field === "passingYear" ||
-                                    field === "percentage"
+                                    field === "passingYear" || field === "percentage"
                                       ? "number"
                                       : "text"
+                                  }
+                                  min={
+                                    field === "passingYear" ? 1960
+                                    : field === "percentage" ? 0
+                                    : undefined
+                                  }
+                                  max={
+                                    field === "passingYear" ? new Date().getFullYear() + 1
+                                    : field === "percentage" ? 100
+                                    : undefined
+                                  }
+                                  step={field === "percentage" ? "0.01" : undefined}
+                                  placeholder={
+                                    field === "passingYear" ? "e.g. 2022"
+                                    : field === "percentage" ? "0–100"
+                                    : undefined
                                   }
                                   onChange={(e) =>
                                     setAcademic((p) => ({
                                       ...p,
-                                      [key]: {
-                                        ...p[key]!,
-                                        [field]: e.target.value,
-                                      },
+                                      [key]: { ...p[key]!, [field]: e.target.value },
                                     }))
                                   }
                                   className="w-full px-2 py-2 text-xs outline-none focus:bg-primary-50 focus:ring-1 focus:ring-primary"

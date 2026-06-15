@@ -311,9 +311,22 @@ function DocumentUploadSection({
     staleTime: 5 * 60_000,
   });
 
+  const selectedTypeName = docTypes?.find((t) => t.id === selectedTypeId)?.name ?? "";
+  const isPhotoType = selectedTypeName.toLowerCase().includes("photo");
+  const fileAccept = isPhotoType
+    ? "image/jpeg,image/jpg,image/png"
+    : "application/pdf,image/jpeg,image/jpg,image/png";
+
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !selectedTypeId) return;
+
+    if (isPhotoType && !file.type.startsWith("image/")) {
+      toast.error("Please upload the photo as a JPG or PNG image file, not as a PDF.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
     setUploading(true);
     try {
       const formData = new FormData();
@@ -378,6 +391,7 @@ function DocumentUploadSection({
               type="button"
               onClick={() => selectedTypeId && fileRef.current?.click()}
               disabled={!selectedTypeId || uploading}
+              title={isPhotoType ? "Upload JPG or PNG image only" : "Upload PDF or image"}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-800 disabled:opacity-50 transition-colors"
             >
               <Upload size={14} />
@@ -386,7 +400,7 @@ function DocumentUploadSection({
             <input
               ref={fileRef}
               type="file"
-              accept="application/pdf,image/jpeg,image/jpg,image/png"
+              accept={fileAccept}
               title="Upload document file"
               onChange={(e) => void handleUpload(e)}
               className="hidden"
@@ -419,7 +433,7 @@ function DocumentUploadSection({
                       Verified
                     </Badge>
                   ) : (
-                    <Badge variant="warning">Pending</Badge>
+                    <Badge variant="gray">Uploaded</Badge>
                   )}
                   <a
                     href={doc.fileUrl}
@@ -675,7 +689,22 @@ export function ConfirmedApplicationTab({
     void qc.invalidateQueries({ queryKey: ["confirmed", leadId] });
   }
 
+  function validateForm(): string | null {
+    if (form.permanentPhone && !/^[6-9]\d{9}$/.test(form.permanentPhone))
+      return "Permanent phone must be a valid 10-digit Indian number";
+    if (form.localGuardianPhone && !/^[6-9]\d{9}$/.test(form.localGuardianPhone))
+      return "Guardian phone must be a valid 10-digit Indian number";
+    if (form.aadharNo && !/^\d{12}$/.test(form.aadharNo))
+      return "Aadhar number must be exactly 12 digits";
+    return null;
+  }
+
   async function handleSave() {
+    const validationError = validateForm();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
     setSaving(true);
     try {
       await persist(mode === "edit" ? confirmOnSave : false);

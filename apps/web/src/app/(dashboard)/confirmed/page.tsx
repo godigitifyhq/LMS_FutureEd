@@ -167,8 +167,7 @@ export default function ConfirmedLeadsPage() {
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
                       <p className="text-gray-400 uppercase tracking-wide mb-0.5">
-                        className="bg-white border border-green-200 rounded-xl
-                        p-4 space-y-4"
+                        Adm. ID
                       </p>
                       <p className="text-gray-700 font-medium">
                         {lead.confirmedApplication?.admissionId ?? "—"}

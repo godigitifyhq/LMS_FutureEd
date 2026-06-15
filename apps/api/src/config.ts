@@ -64,7 +64,26 @@ export const config = {
     from: optionalEnv("SMTP_FROM", "FutureEd LMS <noreply@futureeducation.in>"),
   },
   frontendUrl: optionalEnv("FRONTEND_URL", "http://localhost:3000"),
+  logoUrl: optionalEnv("LOGO_URL", ""),
 
   isProd: process.env["NODE_ENV"] === "production",
   isDev: process.env["NODE_ENV"] !== "production",
+
+  // ── Meta (shared for Lead Forms + WhatsApp) ──
+  // All optional — system degrades gracefully when not set
+  meta: {
+    appId:                   optionalEnv("META_APP_ID", ""),
+    appSecret:               optionalEnv("META_APP_SECRET", ""),
+    webhookVerifyToken:      optionalEnv("META_WEBHOOK_VERIFY_TOKEN", ""),
+    pageAccessToken:         optionalEnv("META_PAGE_ACCESS_TOKEN", ""),
+    pageId:                  optionalEnv("META_PAGE_ID", ""),
+    whatsappPhoneNumberId:   optionalEnv("META_WHATSAPP_PHONE_NUMBER_ID", ""),
+    whatsappBusinessAccountId: optionalEnv("META_WHATSAPP_BUSINESS_ACCOUNT_ID", ""),
+    whatsappAutoReply:       optionalEnv("META_WHATSAPP_AUTO_REPLY", "true") === "true",
+    // Comma-separated form IDs whitelist — empty = accept all forms
+    allowedFormIds:          optionalEnv("META_ALLOWED_FORM_IDS", "")
+                               .split(",")
+                               .map((s) => s.trim())
+                               .filter(Boolean),
+  },
 } as const;

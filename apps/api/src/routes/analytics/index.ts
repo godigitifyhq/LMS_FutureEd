@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { Prisma } from "@lms/db";
 import { authenticate } from "../../middleware/authenticate";
 import { authorize } from "../../middleware/authorize";
 import { Role } from "@lms/types";
@@ -25,6 +26,16 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
   // Auth guard — all analytics require sub-admin or admin
   const guard = [authenticate, authorize([Role.ADMIN, Role.SUB_ADMIN])];
 
+  // SUB_ADMIN is locked to their own branch; ADMIN may query any branch via q.branchId
+  function effectiveBranchId(
+    role: string,
+    userBranchId: string,
+    queryBranchId?: string,
+  ): string | undefined {
+    if (role === Role.SUB_ADMIN) return userBranchId;
+    return queryBranchId;
+  }
+
   // ── GET /analytics/dashboard ──
   fastify.get("/dashboard", { preHandler: guard }, async (request, reply) => {
     const q = request.query as {
@@ -33,12 +44,13 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       dateTo?: string;
       branchId?: string;
     };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
     const cacheKey = buildCacheKey("dashboard", {
       period: q.period,
       dateFrom: q.dateFrom,
       dateTo: q.dateTo,
-      branchId: q.branchId,
+      branchId,
     });
 
     const data = await getCached(fastify.redis, cacheKey, CACHE_TTL, () =>
@@ -47,7 +59,7 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
         period: q.period ?? "last30",
         ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
         ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
-        ...(q.branchId !== undefined ? { branchId: q.branchId } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
       }),
     );
 
@@ -62,12 +74,13 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       dateTo?: string;
       branchId?: string;
     };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
     const cacheKey = buildCacheKey("employees", {
       period: q.period,
       dateFrom: q.dateFrom,
       dateTo: q.dateTo,
-      branchId: q.branchId,
+      branchId,
     });
 
     const data = await getCached(fastify.redis, cacheKey, CACHE_TTL, () =>
@@ -76,7 +89,7 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
         period: q.period ?? "last30",
         ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
         ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
-        ...(q.branchId !== undefined ? { branchId: q.branchId } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
       }),
     );
 
@@ -86,13 +99,14 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /analytics/pipeline ──
   fastify.get("/pipeline", { preHandler: guard }, async (request, reply) => {
     const q = request.query as { branchId?: string };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
-    const cacheKey = buildCacheKey("pipeline", { branchId: q.branchId });
+    const cacheKey = buildCacheKey("pipeline", { branchId });
 
     const data = await getCached(fastify.redis, cacheKey, CACHE_TTL, () =>
       getPipelineAnalysis({
         prisma: fastify.prisma,
-        ...(q.branchId !== undefined ? { branchId: q.branchId } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
       }),
     );
 
@@ -107,12 +121,13 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       dateTo?: string;
       branchId?: string;
     };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
     const cacheKey = buildCacheKey("sources", {
       period: q.period,
       dateFrom: q.dateFrom,
       dateTo: q.dateTo,
-      branchId: q.branchId,
+      branchId,
     });
 
     const data = await getCached(fastify.redis, cacheKey, CACHE_TTL, () =>
@@ -121,7 +136,7 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
         period: q.period ?? "last30",
         ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
         ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
-        ...(q.branchId !== undefined ? { branchId: q.branchId } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
       }),
     );
 
@@ -131,8 +146,9 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /analytics/follow-ups ──
   fastify.get("/follow-ups", { preHandler: guard }, async (request, reply) => {
     const q = request.query as { branchId?: string };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
-    const cacheKey = buildCacheKey("followups", { branchId: q.branchId });
+    const cacheKey = buildCacheKey("followups", { branchId });
 
     const data = await getCached(
       fastify.redis,
@@ -141,7 +157,7 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       () =>
         getFollowUpCompliance({
           prisma: fastify.prisma,
-          ...(q.branchId !== undefined ? { branchId: q.branchId } : {}),
+          ...(branchId !== undefined ? { branchId } : {}),
         }),
     );
 
@@ -156,12 +172,13 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       dateTo?: string;
       branchId?: string;
     };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
     const cacheKey = buildCacheKey("confirmed", {
       period: q.period,
       dateFrom: q.dateFrom,
       dateTo: q.dateTo,
-      branchId: q.branchId,
+      branchId,
     });
 
     const data = await getCached(fastify.redis, cacheKey, CACHE_TTL, () =>
@@ -170,7 +187,7 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
         period: q.period ?? "last30",
         ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
         ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
-        ...(q.branchId !== undefined ? { branchId: q.branchId } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
       }),
     );
 
@@ -261,28 +278,36 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
 
     const days = q.period === "last90" ? 90 : q.period === "last30" ? 30 : 7;
     const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const branchFilter = q.branchId ? { branchId: q.branchId } : {};
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    type TrendRow = { day: Date; cnt: bigint };
+
+    const branchClause = branchId
+      ? Prisma.sql`AND "branchId" = ${branchId}`
+      : Prisma.empty;
 
     const [created, confirmed] = await Promise.all([
-      fastify.prisma.lead.groupBy({
-        by: ["createdAt"],
-        where: { ...branchFilter, createdAt: { gte: from } },
-        _count: { _all: true },
-      }),
-      fastify.prisma.lead.groupBy({
-        by: ["confirmedAt"],
-        where: {
-          ...branchFilter,
-          status: "CONFIRMED",
-          confirmedAt: { gte: from },
-        },
-        _count: { _all: true },
-      }),
+      fastify.prisma.$queryRaw<TrendRow[]>(Prisma.sql`
+        SELECT DATE("createdAt" AT TIME ZONE 'UTC') AS day, COUNT(*)::bigint AS cnt
+        FROM "Lead"
+        WHERE "createdAt" >= ${from}
+        ${branchClause}
+        GROUP BY day
+        ORDER BY day
+      `),
+      fastify.prisma.$queryRaw<TrendRow[]>(Prisma.sql`
+        SELECT DATE("confirmedAt" AT TIME ZONE 'UTC') AS day, COUNT(*)::bigint AS cnt
+        FROM "Lead"
+        WHERE status = 'CONFIRMED'
+          AND "confirmedAt" >= ${from}
+        ${branchClause}
+        GROUP BY day
+        ORDER BY day
+      `),
     ]);
 
-    // Group by date string
+    // Build date scaffold
     const dateMap: Record<string, { created: number; confirmed: number }> = {};
-
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
       const key = d.toISOString().split("T")[0]!;
@@ -290,14 +315,12 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     for (const row of created) {
-      const key = new Date(row.createdAt).toISOString().split("T")[0]!;
-      if (dateMap[key]) dateMap[key]!.created += row._count._all;
+      const key = new Date(row.day).toISOString().split("T")[0]!;
+      if (dateMap[key]) dateMap[key]!.created += Number(row.cnt);
     }
-
     for (const row of confirmed) {
-      if (!row.confirmedAt) continue;
-      const key = new Date(row.confirmedAt).toISOString().split("T")[0]!;
-      if (dateMap[key]) dateMap[key]!.confirmed += row._count._all;
+      const key = new Date(row.day).toISOString().split("T")[0]!;
+      if (dateMap[key]) dateMap[key]!.confirmed += Number(row.cnt);
     }
 
     const trend = Object.entries(dateMap).map(([date, counts]) => ({

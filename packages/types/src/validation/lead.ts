@@ -140,7 +140,7 @@ export const LeadListQuerySchema = z.object({
     })
     .default(20),
   status: z.nativeEnum(LeadStatus).optional(),
-  assignedToId: z.string().cuid().optional(),
+  assignedToId: z.union([z.literal("unassigned"), z.string().cuid()]).optional(),
   courseId: z.string().cuid().optional(),
   sourceId: z.string().cuid().optional(),
   branchId: z.string().cuid().optional(),

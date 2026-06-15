@@ -48,6 +48,14 @@ export type Lead = {
   confirmedById: string | null;
   duplicateOfId: string | null;
   branchId: string;
+  // WhatsApp fields
+  isFromWhatsApp: boolean;
+  waContactId: string | null;
+  waFirstMessage: string | null;
+  waMessageType: string | null;
+  // Meta Lead Form fields
+  metaLeadgenId: string | null;
+  metaAdName: string | null;
   assignedTo: UserSummary | null;
   createdBy: UserSummary;
   courses: LeadCourse[];

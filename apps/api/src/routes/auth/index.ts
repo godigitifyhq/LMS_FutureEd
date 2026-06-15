@@ -16,6 +16,12 @@ import {
   ResetPasswordSchema,
 } from "@lms/types";
 import { validateBody } from "../../middleware/validate";
+import { z } from "zod";
+
+const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters").max(128),
+});
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   const refreshCookieOptions = {
@@ -259,10 +265,12 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       preHandler: authenticate,
     },
     async (request, reply) => {
-      const { currentPassword, newPassword } = request.body as {
-        currentPassword: string;
-        newPassword: string;
-      };
+      const validation = validateBody(ChangePasswordSchema, request.body);
+      if (!validation.success) {
+        return reply.status(400).send({ success: false, ...validation.error });
+      }
+      const { currentPassword, newPassword } = validation.data;
+
       const user = await fastify.prisma.user.findUnique({
         where: { id: request.user.id },
       });
@@ -283,16 +291,21 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         });
 
       const newHash = await bcrypt.hash(newPassword, 12);
-      await fastify.prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash: newHash },
+      await fastify.prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { passwordHash: newHash },
+        });
+        // Invalidate all existing refresh tokens for this user
+        await tx.refreshToken.deleteMany({ where: { userId: user.id } });
       });
 
-      await fastify.redis.del(`user-logout:${user.id}`);
+      // Force re-auth on all devices by setting user-level logout flag (24h)
+      await fastify.redis.setex(`user-logout:${user.id}`, 86400, "1");
 
       return reply.send({
         success: true,
-        data: { message: "Password changed successfully" },
+        data: { message: "Password changed successfully. Please login again." },
       });
     },
   );

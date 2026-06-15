@@ -41,7 +41,11 @@ export function startFollowUpCron(fastify: FastifyInstance): void {
         await fastify.queues[QUEUES.NOTIFICATIONS].add(
           "overdue-followup",
           { ...notification, leadId: item.leadId },
-          { attempts: 3, backoff: { type: "exponential", delay: 5000 } },
+          {
+            // jobId deduplicates: same lead won't be re-queued if a job is already pending/active
+            jobId: `overdue-${item.leadId}`,
+            attempts: 1,
+          },
         );
       }
 

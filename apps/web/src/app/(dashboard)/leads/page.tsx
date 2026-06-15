@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import dayjs from "dayjs";
 import {
@@ -44,6 +44,15 @@ export default function LeadsPage() {
   const isManager = user?.role === Role.ADMIN || user?.role === Role.SUB_ADMIN;
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+
+  // Read URL params on mount to support dashboard deep-links (e.g. ?assignedToId=unassigned)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const assignedToId = params.get("assignedToId");
+    if (assignedToId) {
+      setFilters((prev) => ({ ...prev, assignedToId }));
+    }
+  }, []);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAssignModal, setBulkAssignModal] = useState(false);

@@ -216,6 +216,8 @@ export async function transitionLeadRoute(
       const shouldPrepareAdmissionDraft =
         toStatus === LeadStatus.INTERESTED || isConfirming;
 
+      // Serializable isolation prevents concurrent transactions from reading
+      // the same "last admissionId" and generating duplicate sequential IDs.
       await fastify.prisma.$transaction(async (tx) => {
         let existingConfirmedApp: ExistingConfirmedDraft | null = null;
 
@@ -380,7 +382,7 @@ export async function transitionLeadRoute(
             });
           }
         }
-      });
+      }, { isolationLevel: "Serializable" });
 
       if (
         toStatus === LeadStatus.APPLICATION_SENT &&

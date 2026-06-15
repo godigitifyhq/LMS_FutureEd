@@ -1,7 +1,5 @@
 import { defineConfig } from "prisma/config";
-
-// dotenv not imported here — dev uses local .env, CI/production platforms inject vars natively
-// prisma generate does not connect to the DB so DATABASE_URL is not required at build time
+import "dotenv/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, Tag, FileText, Building2, ChevronRight } from "lucide-react";
+import { BookOpen, Tag, FileText, Building2, ChevronRight, Share2 } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { Role } from "@lms/types";
 
@@ -31,6 +31,13 @@ const SETTINGS_SECTIONS = [
     icon: Building2,
     label: "Branches",
     description: "Office locations",
+    adminOnly: true,
+  },
+  {
+    href: "/settings/meta",
+    icon: Share2,
+    label: "Meta Integration",
+    description: "Facebook Lead Forms & WhatsApp lead capture",
     adminOnly: true,
   },
 ];

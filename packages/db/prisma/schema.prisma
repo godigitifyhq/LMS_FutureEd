@@ -236,6 +236,16 @@ model Lead {
   auditLogs            AuditLog[]
   confirmedApplication ConfirmedApplication?
 
+  // ── WhatsApp Cloud API fields ──
+  waContactId    String?  // WhatsApp wa_id — used for idempotency check
+  waFirstMessage String?  // First message body or "[image]", "[audio]" etc.
+  waMessageType  String?  // text | image | audio | video | document | sticker | location
+  isFromWhatsApp Boolean  @default(false)
+
+  // ── Meta Lead Form (Instant Form) fields ──
+  metaLeadgenId  String?  @unique // leadgen_id from Meta — unique per form submission
+  metaAdName     String?  // ad_name from Meta webhook payload
+
   // Indexes — every analytics query covered
   @@index([phone])           // duplicate detection
   @@index([email])           // duplicate detection
@@ -246,6 +256,8 @@ model Lead {
   @@index([sourceId])        // lead source breakdown
   @@index([isDuplicate])     // filter real vs duplicate
   @@index([nextFollowUpAt])  // follow-up dashboard
+  @@index([waContactId])     // WhatsApp idempotency lookup
+  @@index([isFromWhatsApp])  // filter WhatsApp vs other leads
 }
 
 // ─────────────────────────────────────────
@@ -382,7 +394,7 @@ model AssignmentHistory {
 model AuditLog {
   id     String  @id @default(cuid())
   leadId String?
-  lead   Lead?   @relation(fields: [leadId], references: [id])
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
   userId String
   user   User    @relation(fields: [userId], references: [id])
 

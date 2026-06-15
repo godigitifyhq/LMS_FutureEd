@@ -4,7 +4,6 @@ import {
   checkDuplicate,
   buildDuplicateContinuation,
   buildLostLeadRevival,
-  resolveAssigneeOnCreate,
 } from "@lms/core";
 import { LeadStatus, Role } from "@lms/types";
 import { findDuplicateLeads } from "./service";
@@ -180,13 +179,12 @@ export async function createLeadRoute(fastify: FastifyInstance): Promise<void> {
       }
 
       // ── Step 2: Resolve assignee ──
-      const assignedToId = resolveAssigneeOnCreate({
-        creatorId: userId,
-        creatorRole: role as Role,
-        ...(role !== "EMPLOYEE" && body.assignedToId
-          ? { explicitAssigneeId: body.assignedToId }
-          : {}),
-      });
+      // EMPLOYEEs are assigned to themselves; ADMIN/SUB_ADMIN default to
+      // unassigned so the lead appears in the unassigned queue for triage.
+      const assignedToId: string | null =
+        role === "EMPLOYEE"
+          ? userId
+          : (body.assignedToId ?? null);
 
       // ── Step 3: Create lead ──
       const lead = await fastify.prisma.$transaction(async (tx) => {
@@ -196,7 +194,7 @@ export async function createLeadRoute(fastify: FastifyInstance): Promise<void> {
             phone: body.phone,
             fatherName: body.fatherName ?? null,
             dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null,
-            email: body.email ?? null,
+            email: body.email?.toLowerCase().trim() ?? null,
             alternatePhone: body.alternatePhone ?? null,
             whatsappNumber: body.whatsappNumber ?? null,
             gender: (body.gender ?? null) as any,
