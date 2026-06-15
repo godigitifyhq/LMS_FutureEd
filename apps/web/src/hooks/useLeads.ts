@@ -38,6 +38,7 @@ export type LeadFilters = {
   dateTo?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  overdue?: boolean;
 };
 
 // ── Lead list with auto-refresh ──

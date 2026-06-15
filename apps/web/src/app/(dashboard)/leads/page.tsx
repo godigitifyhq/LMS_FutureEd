@@ -45,13 +45,17 @@ export default function LeadsPage() {
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
-  // Read URL params on mount to support dashboard deep-links (e.g. ?assignedToId=unassigned)
+  // Read URL params on mount to support dashboard deep-links
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const patch: Partial<Filters> = {};
     const assignedToId = params.get("assignedToId");
-    if (assignedToId) {
-      setFilters((prev) => ({ ...prev, assignedToId }));
-    }
+    if (assignedToId) patch.assignedToId = assignedToId;
+    const status = params.get("status") as LeadStatus | null;
+    if (status) patch.status = status;
+    const overdue = params.get("overdue");
+    if (overdue === "true") patch.overdue = true;
+    if (Object.keys(patch).length > 0) setFilters((prev) => ({ ...prev, ...patch }));
   }, []);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [selected, setSelected] = useState<Set<string>>(new Set());

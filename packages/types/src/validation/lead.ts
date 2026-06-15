@@ -151,6 +151,7 @@ export const LeadListQuerySchema = z.object({
     .enum(["createdAt", "studentName", "status", "nextFollowUpAt"])
     .default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  overdue: z.coerce.boolean().optional(),
 });
 
 export type CreateLeadInput = z.infer<typeof CreateLeadSchema>;

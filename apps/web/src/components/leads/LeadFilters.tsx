@@ -37,7 +37,12 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
       const { dateFrom: _df, dateTo: _dt, ...rest } = filters;
       onChange({ ...rest, page: 1 });
     } else {
-      onChange({ ...filters, dateFrom: `${year}-01-01`, dateTo: `${year}-12-31`, page: 1 });
+      onChange({
+        ...filters,
+        dateFrom: `${year}-01-01`,
+        dateTo: `${year}-12-31`,
+        page: 1,
+      });
     }
   }
 
@@ -66,7 +71,7 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
   });
 
   const hasActiveFilters = Object.values(filters).some(
-    (v) => v !== undefined && v !== "" && v !== 1 && v !== 20,
+    (v) => v !== undefined && v !== "" && v !== 1 && v !== 20 && v !== false,
   );
 
   return (
@@ -128,6 +133,25 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
             <span className="hidden sm:inline">Clear</span>
           </button>
         )}
+      </div>
+
+      {/* Quick-filter chips */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const { overdue: _o, status: _s, ...rest } = filters;
+            onChange({ ...rest, overdue: true, page: 1 });
+          }}
+          className={cn(
+            "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+            filters.overdue
+              ? "bg-amber-100 text-amber-700 border-amber-300"
+              : "bg-white text-gray-600 border-surface-200 hover:border-amber-300 hover:text-amber-700",
+          )}
+        >
+          ⏰ Overdue Follow-ups
+        </button>
       </div>
 
       {/* Expanded filters */}
@@ -244,7 +268,9 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
           >
             <option value="">All Years</option>
             {YEAR_OPTIONS.map((y) => (
-              <option key={y} value={String(y)}>{y}</option>
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
             ))}
           </select>
 
@@ -257,7 +283,10 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
               title="Filter from date"
               onChange={(e) => {
                 const value = e.target.value;
-                if (value) { onChange({ ...filters, dateFrom: value, page: 1 }); return; }
+                if (value) {
+                  onChange({ ...filters, dateFrom: value, page: 1 });
+                  return;
+                }
                 const { dateFrom: _dateFrom, ...rest } = filters;
                 onChange({ ...rest, page: 1 });
               }}

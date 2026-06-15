@@ -32,6 +32,7 @@ export async function getDashboardOverview(params: {
     overdueCount,
     newToday,
     totalActiveLeads,
+    interestedCount,
     statusBreakdown,
   ] = await Promise.all([
     // Total leads created in period
@@ -93,6 +94,11 @@ export async function getDashboardOverview(params: {
       },
     }),
 
+    // Interested leads right now
+    prisma.lead.count({
+      where: { ...branchFilter, status: "INTERESTED" },
+    }),
+
     // Count per status for pipeline view
     prisma.lead.groupBy({
       by: ["status"],
@@ -116,6 +122,7 @@ export async function getDashboardOverview(params: {
       overdueCount,
       newToday,
       totalActiveLeads,
+      interestedCount,
       conversionRate,
     },
     pipeline: statusBreakdown.map((s) => ({

@@ -92,6 +92,7 @@ export function buildLeadWhereClause(params: {
     search?: string
     dateFrom?: string
     dateTo?: string
+    overdue?: boolean
   }
 }) {
   const { userId, userRole, filters } = params
@@ -139,6 +140,10 @@ export function buildLeadWhereClause(params: {
   }
   if (filters.sourceId)     andClauses.push({ sourceId: filters.sourceId })
   if (filters.branchId)     andClauses.push({ branchId: filters.branchId })
+  if (filters.overdue) {
+    andClauses.push({ nextFollowUpAt: { lte: new Date() } })
+    andClauses.push({ status: { notIn: ['CONFIRMED', 'DUPLICATE', 'LOST'] } })
+  }
 
   if (filters.courseId) {
     andClauses.push({ courses: { some: { courseId: filters.courseId } } })

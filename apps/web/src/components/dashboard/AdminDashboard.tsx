@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Users, CheckCircle2, TrendingUp, AlertTriangle, UserX } from "lucide-react";
+import {
+  Users,
+  CheckCircle2,
+  TrendingUp,
+  AlertTriangle,
+  UserX,
+  Star,
+} from "lucide-react";
 import { StatCard } from "./StatCard";
 import { PipelineChart } from "./PipelineChart";
 import { ActivityFeed } from "./ActivityFeed";
@@ -21,13 +28,15 @@ type DashboardSummary = {
   newToday?: number;
   overdueCount?: number;
   totalActiveLeads?: number;
+  interestedCount?: number;
   conversionRate?: number;
 };
 
 export function AdminDashboard() {
   const [period, setPeriod] = useState<Period>("last30");
   const { data, isLoading } = useDashboardOverview(period);
-  const { data: unassignedData, isLoading: unassignedLoading } = useUnassignedLeads();
+  const { data: unassignedData, isLoading: unassignedLoading } =
+    useUnassignedLeads();
   // data may be typed as an empty object by the hook; narrow it to a local shape for summary access
   const summary = (data as { summary?: DashboardSummary } | undefined)?.summary;
 
@@ -40,7 +49,7 @@ export function AdminDashboard() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <StatCard
           title="Total Leads"
           value={summary?.totalLeadsInPeriod ?? 0}
@@ -58,7 +67,7 @@ export function AdminDashboard() {
           iconBg="bg-green-50"
           borderAccentClassName="border-l-green-400"
           loading={isLoading}
-          href="/admissions"
+          href="/confirmed"
         />
         <StatCard
           title="Pending Follow-ups"
@@ -69,6 +78,16 @@ export function AdminDashboard() {
           borderAccentClassName="border-l-yellow-400"
           loading={isLoading}
           href="/leads?overdue=true"
+        />
+        <StatCard
+          title="Interested Leads"
+          value={summary?.interestedCount ?? 0}
+          subtitle="in pipeline"
+          icon={<Star size={16} className="text-blue-600" />}
+          iconBg="bg-blue-50"
+          borderAccentClassName="border-l-blue-400"
+          loading={isLoading}
+          href="/admissions"
         />
         <StatCard
           title="Leads This Month"

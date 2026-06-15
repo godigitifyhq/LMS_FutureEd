@@ -50,6 +50,7 @@ export async function leadListRoute(fastify: FastifyInstance): Promise<void> {
       if (query.dateTo) filters.dateTo = query.dateTo;
       if (role !== "EMPLOYEE" && query.branchId)
         filters.branchId = query.branchId;
+      if (query.overdue) filters.overdue = true;
 
       const where = buildLeadWhereClause({
         userId,
