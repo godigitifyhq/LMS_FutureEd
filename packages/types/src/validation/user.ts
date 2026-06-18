@@ -7,14 +7,14 @@ export const CreateUserSchema = z.object({
   email:    validEmail,
   phone:    indianPhone.optional(),
   role:     z.nativeEnum(Role),
-  branchId: z.string().cuid({ message: 'Invalid branch ID' }),
+  branchId: z.string().min(1, { message: 'Branch is required' }),
   sendSetupLink: z.boolean().default(true),
 })
 
 export const UpdateUserSchema = z.object({
   name:     z.string().trim().min(2).optional(),
   phone:    indianPhone.optional(),
-  branchId: z.string().cuid().optional(),
+  branchId: z.string().min(1).optional(),
   role:     z.nativeEnum(Role).optional(),
 })
 

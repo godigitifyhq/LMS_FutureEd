@@ -9,9 +9,28 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "FutureEd LMS",
-  description: "Lead Management System — Future Education",
-  icons: { icon: "/logo.jpg" },
+  title: "FutureEd — Lead Management System",
+  description:
+    "FutureEd's Lead Management System — track, manage, and convert education leads efficiently across all your campaigns and channels.",
+  icons: {
+    icon: "/logo.jpg",
+    shortcut: "/logo.jpg",
+    apple: "/logo.jpg",
+  },
+  openGraph: {
+    title: "FutureEd — Lead Management System",
+    description:
+      "FutureEd's Lead Management System — track, manage, and convert education leads efficiently across all your campaigns and channels.",
+    type: "website",
+    images: [{ url: "/logo.jpg", width: 512, height: 512, alt: "FutureEd Logo" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "FutureEd — Lead Management System",
+    description:
+      "FutureEd's Lead Management System — track, manage, and convert education leads efficiently.",
+    images: ["/logo.jpg"],
+  },
 };
 
 export default function RootLayout({
