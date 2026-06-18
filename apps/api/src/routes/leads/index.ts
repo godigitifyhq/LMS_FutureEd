@@ -160,30 +160,6 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
-      if (role === "EMPLOYEE" && lead.status === LeadStatus.CONFIRMED) {
-        const visible = canEmployeeSeeConfirmedLead({
-          lead: {
-            id: lead.id,
-            status: lead.status as LeadStatus,
-            assignedToId: lead.assignedToId ?? null,
-            createdById: lead.createdById,
-            confirmedAt: lead.confirmedAt,
-            confirmedById: null,
-          },
-          user: { id: userId, role: role as Role },
-        });
-
-        if (!visible) {
-          return reply.status(403).send({
-            success: false,
-            error: {
-              code: "FORBIDDEN",
-              message: "This confirmed lead has been handed over to admin",
-            },
-          });
-        }
-      }
-
       if (!lead.confirmedApplication) {
         return reply.status(404).send({
           success: false,

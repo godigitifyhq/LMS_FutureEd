@@ -39,7 +39,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     {
       config: {
         rateLimit: {
-          max: 5,
+          max: config.isDev ? 100 : 5,
           timeWindow: "15 minutes",
           errorResponseBuilder: () => ({
             success: false,
@@ -191,7 +191,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     "/forgot-password",
     {
       config: {
-        rateLimit: { max: 3, timeWindow: "15 minutes" },
+        rateLimit: { max: config.isDev ? 100 : 3, timeWindow: "15 minutes" },
       },
     },
     async (request, reply) => {

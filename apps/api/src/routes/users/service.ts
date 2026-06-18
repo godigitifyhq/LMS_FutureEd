@@ -5,6 +5,7 @@ import { generatePasswordResetToken } from '../auth/service'
 import { invalidateAllSessions } from '../auth/service'
 import { resolveDeactivationUnassignment } from '@lms/core'
 import { QUEUES } from '../../plugins/bullmq'
+import { config } from '../../config'
 
 const BCRYPT_ROUNDS = 12
 
@@ -76,7 +77,7 @@ export async function createUser(params: {
       to: user.email,
       name: user.name,
       role: user.role,
-      setupUrl: `${process.env['FRONTEND_URL'] ?? 'http://localhost:3000'}/setup-password?token=${token}`,
+      setupUrl: `${config.frontendUrl}/setup-password?token=${token}`,
     })
   }
 
