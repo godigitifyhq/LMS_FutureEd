@@ -95,8 +95,8 @@ export function EmployeeDashboard() {
             title="My Total Leads"
             value={myTotal}
             subtitle={`${active} active`}
-            icon={<Users size={16} className="text-primary" />}
-            borderAccentClassName="border-l-red-500"
+            icon={<Users size={16} className="text-red-600" />}
+            colorVariant="red"
             href="/leads"
           />
           <StatCard
@@ -104,8 +104,7 @@ export function EmployeeDashboard() {
             value={confirmed}
             subtitle={confirmed === 0 ? "Keep going!" : "Great work!"}
             icon={<CheckCircle2 size={16} className="text-green-600" />}
-            iconBg="bg-green-50"
-            borderAccentClassName="border-l-green-400"
+            colorVariant="green"
             href="/leads?status=CONFIRMED"
           />
           <StatCard
@@ -113,8 +112,7 @@ export function EmployeeDashboard() {
             value={overdueCount}
             subtitle={overdueCount === 0 ? "All caught up" : "Need action"}
             icon={<Clock size={16} className="text-amber-600" />}
-            iconBg="bg-amber-50"
-            borderAccentClassName="border-l-yellow-400"
+            colorVariant="yellow"
             href="/leads?overdue=true"
           />
           <StatCard
@@ -122,8 +120,7 @@ export function EmployeeDashboard() {
             value={`${convRate}%`}
             subtitle={`${lost} lost leads`}
             icon={<TrendingUp size={16} className="text-indigo-600" />}
-            iconBg="bg-indigo-50"
-            borderAccentClassName="border-l-green-600"
+            colorVariant="indigo"
             href="/leads"
           />
         </div>

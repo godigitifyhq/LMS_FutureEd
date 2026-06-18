@@ -54,8 +54,8 @@ export function AdminDashboard() {
           title="Total Leads"
           value={summary?.totalLeadsInPeriod ?? 0}
           subtitle="vs last period"
-          icon={<Users size={16} className="text-primary" />}
-          borderAccentClassName="border-l-red-500"
+          icon={<Users size={16} className="text-red-600" />}
+          colorVariant="red"
           loading={isLoading}
           href="/leads"
         />
@@ -64,8 +64,7 @@ export function AdminDashboard() {
           value={summary?.newToday ?? 0}
           subtitle="new today"
           icon={<CheckCircle2 size={16} className="text-green-600" />}
-          iconBg="bg-green-50"
-          borderAccentClassName="border-l-green-400"
+          colorVariant="green"
           loading={isLoading}
           href="/confirmed"
         />
@@ -74,8 +73,7 @@ export function AdminDashboard() {
           value={summary?.overdueCount ?? 0}
           subtitle="need action"
           icon={<AlertTriangle size={16} className="text-amber-600" />}
-          iconBg="bg-amber-50"
-          borderAccentClassName="border-l-yellow-400"
+          colorVariant="yellow"
           loading={isLoading}
           href="/leads?overdue=true"
         />
@@ -84,8 +82,7 @@ export function AdminDashboard() {
           value={summary?.interestedCount ?? 0}
           subtitle="in pipeline"
           icon={<Star size={16} className="text-blue-600" />}
-          iconBg="bg-blue-50"
-          borderAccentClassName="border-l-blue-400"
+          colorVariant="blue"
           loading={isLoading}
           href="/admissions"
         />
@@ -94,8 +91,7 @@ export function AdminDashboard() {
           value={summary?.totalActiveLeads ?? 0}
           subtitle="active"
           icon={<TrendingUp size={16} className="text-indigo-600" />}
-          iconBg="bg-indigo-50"
-          borderAccentClassName="border-l-orange-500"
+          colorVariant="indigo"
           loading={isLoading}
           href="/leads"
         />
@@ -103,8 +99,8 @@ export function AdminDashboard() {
           title="Conversion Rate"
           value={`${summary?.conversionRate ?? 0}%`}
           subtitle="this period"
-          icon={<CheckCircle2 size={16} className="text-primary" />}
-          borderAccentClassName="border-l-green-600"
+          icon={<CheckCircle2 size={16} className="text-green-600" />}
+          colorVariant="green"
           loading={isLoading}
           href="/admissions"
         />
@@ -113,8 +109,7 @@ export function AdminDashboard() {
           value={unassignedData?.total ?? 0}
           subtitle="need assignment"
           icon={<UserX size={16} className="text-orange-600" />}
-          iconBg="bg-orange-50"
-          borderAccentClassName="border-l-orange-400"
+          colorVariant="orange"
           loading={unassignedLoading}
           href="/leads?assignedToId=unassigned"
         />

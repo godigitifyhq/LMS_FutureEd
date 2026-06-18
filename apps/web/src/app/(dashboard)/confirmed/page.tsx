@@ -68,7 +68,9 @@ export default function ConfirmedLeadsPage() {
           <h1 className="text-xl font-bold text-gray-900">Admission</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Confirmed leads ready for admission processing
-            {data && ` · ${data.total} total`}
+            {data && (
+              <> · <span className="text-2xl font-extrabold text-gray-900">{data.total}</span> <span className="font-semibold text-gray-700">total</span></>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -331,7 +333,7 @@ export default function ConfirmedLeadsPage() {
                         <td className="px-4 py-3">
                           <Link
                             href={`/leads/${lead.id}`}
-                            className="px-3 py-1.5 rounded-lg border border-surface-200 text-gray-600 text-xs font-medium hover:border-primary hover:text-primary transition-colors"
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary-800 transition-colors shadow-sm"
                           >
                             View Lead
                           </Link>

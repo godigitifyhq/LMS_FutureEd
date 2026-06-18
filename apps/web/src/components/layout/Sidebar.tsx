@@ -117,33 +117,28 @@ export function Sidebar({ onClose }: Props) {
   return (
     <aside
       className={cn(
-        "relative flex flex-col h-full bg-white border-r border-surface-200 transition-all duration-300",
+        "relative flex flex-col h-full bg-gray-100 border-r border-gray-200 transition-all duration-300",
         isMobile ? "w-72" : collapsed ? "w-16" : "w-60",
       )}
     >
       {/* Logo + mobile close button */}
       <div
         className={cn(
-          "flex border-b border-surface-200 px-4 py-4",
+          "flex border-b border-gray-200 px-4",
           isExpanded ? "items-center gap-3" : "items-center justify-center",
         )}
       >
-        <div className={cn("rounded-xl overflow-hidden bg-white shrink-0", !isExpanded ? "w-8 h-8" : "w-12 h-12")}>
+        <div className={cn("rounded-xl overflow-hidden shrink-0", !isExpanded ? "w-10 h-10" : "w-50 h-50")}>
           <Image
             src="/logo.jpg"
             alt="Future Education Trust"
-            width={isExpanded ? 48 : 32}
-            height={isExpanded ? 48 : 32}
+            width={isExpanded ? 80 : 40}
+            height={isExpanded ? 80 : 40}
             className="w-full h-full object-contain"
             priority
           />
         </div>
-        {isExpanded && (
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-gray-900 leading-tight">Future Education</p>
-            <p className="text-xs text-gray-500">LMS</p>
-          </div>
-        )}
+       
         {isMobile && (
           <button
             type="button"
@@ -185,7 +180,7 @@ export function Sidebar({ onClose }: Props) {
                 isMobile ? "py-3" : "py-2.5",
                 isActive
                   ? "bg-primary text-white"
-                  : "text-gray-600 hover:bg-surface-100 hover:text-gray-900",
+                  : "text-gray-600 hover:bg-gray-200 hover:text-gray-900",
               )}
             >
               <Icon
@@ -199,7 +194,7 @@ export function Sidebar({ onClose }: Props) {
       </nav>
 
       {/* User info + logout */}
-      <div className="border-t border-surface-200 p-3">
+      <div className="border-t border-gray-200 p-3">
         <div className="flex items-center gap-3">
           <div className="shrink-0 w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center">
             <span className="text-primary-700 text-xs font-bold">
