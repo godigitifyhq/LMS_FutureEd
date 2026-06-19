@@ -214,3 +214,45 @@ export async function fetchAllLeadsFromForm(
 
   return results;
 }
+
+// ── Auto page subscription ─────────────────────────────────────────────────
+// Subscribes the Facebook Page to this app for `leadgen` webhook events.
+// Must be called on startup so leads fire automatically without manual setup.
+export async function subscribePageToApp(): Promise<void> {
+  const { pageId, pageAccessToken, appId } = config.meta;
+
+  if (!pageId || !pageAccessToken || !appId) {
+    console.log(
+      "[meta-lead-form] Page subscription skipped — META_PAGE_ID, META_PAGE_ACCESS_TOKEN or META_APP_ID not set",
+    );
+    return;
+  }
+
+  try {
+    const url = new URL(
+      `https://graph.facebook.com/v19.0/${pageId}/subscribed_apps`,
+    );
+    url.searchParams.set("subscribed_fields", "leadgen");
+    url.searchParams.set("access_token", pageAccessToken);
+
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      signal: AbortSignal.timeout(10000),
+    });
+
+    const json = (await res.json()) as { success?: boolean; error?: { message: string } };
+
+    if (json.success) {
+      console.log("[meta-lead-form] Page subscribed to app for leadgen events ✓", { pageId });
+    } else {
+      console.error("[meta-lead-form] Page subscription failed", {
+        pageId,
+        error: json.error?.message ?? JSON.stringify(json),
+      });
+    }
+  } catch (err) {
+    console.error("[meta-lead-form] subscribePageToApp failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}

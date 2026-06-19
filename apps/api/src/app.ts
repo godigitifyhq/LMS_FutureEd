@@ -3,6 +3,7 @@ import { config } from "./config";
 import { startFollowUpCron } from "./jobs/followUp";
 import { startNotificationWorker } from "./workers/notifications";
 import { verifyEmailConnection } from "./services/email";
+import { subscribePageToApp } from "./services/metaLeadForm";
 
 async function main() {
   const fastify = await buildServer();
@@ -15,6 +16,7 @@ async function main() {
     notificationWorker = startNotificationWorker(fastify.redis as any);
     // Fire-and-forget — SMTP verify is diagnostic only and must not block startup
     void verifyEmailConnection();
+    void subscribePageToApp();
   });
 
   fastify.addHook("onClose", async () => {
