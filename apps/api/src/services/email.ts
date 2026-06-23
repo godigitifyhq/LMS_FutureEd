@@ -1,7 +1,32 @@
 import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import fs from "node:fs";
 import path from "node:path";
 import { config } from "../config";
+
+// ─────────────────────────────────────────────────────────────
+// Transport selection
+//   RESEND_API_KEY set  → Resend (HTTPS, works on Render)
+//   SMTP_USER + SMTP_PASS set → nodemailer SMTP (Brevo / local)
+//   Neither → emails are skipped with a warning
+// ─────────────────────────────────────────────────────────────
+const resendClient = config.resendApiKey ? new Resend(config.resendApiKey) : null;
+
+const smtpTransporter =
+  config.smtp.user && config.smtp.pass
+    ? nodemailer.createTransport({
+        host: config.smtp.host,
+        port: config.smtp.port,
+        secure: config.smtp.port === 465,
+        pool: true,
+        maxConnections: 1,
+        maxMessages: 100,
+        auth: {
+          user: config.smtp.user,
+          pass: config.smtp.pass.replace(/\s/g, ""),
+        },
+      })
+    : null;
 
 // Try several candidate paths so this works both locally (tsx) and on Render
 function loadLogoDataUri(): string | null {
@@ -32,15 +57,26 @@ function esc(value: string | null | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
-const resend = new Resend(config.resendApiKey);
-
 export async function verifyEmailConnection(): Promise<boolean> {
-  if (!config.resendApiKey) {
-    console.warn("⚠ Email not configured — set RESEND_API_KEY");
-    return false;
+  if (resendClient) {
+    console.log("✓ Email service ready (Resend)");
+    return true;
   }
-  console.log("✓ Email service ready (Resend)");
-  return true;
+  if (smtpTransporter) {
+    try {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("SMTP verify timed out after 8s")), 8000),
+      );
+      await Promise.race([smtpTransporter.verify(), timeout]);
+      console.log("✓ Email service ready (SMTP)");
+      return true;
+    } catch (err) {
+      console.error("✗ SMTP verify failed:", err instanceof Error ? err.message : err);
+      return false;
+    }
+  }
+  console.warn("⚠ Email not configured — set RESEND_API_KEY or SMTP_USER + SMTP_PASS");
+  return false;
 }
 
 function htmlWrapper(content: string): string {
@@ -81,26 +117,42 @@ type EmailPayload = {
 };
 
 async function send(payload: EmailPayload): Promise<void> {
-  if (!config.resendApiKey) {
-    console.error("[EMAIL] RESEND_API_KEY not set — email skipped to:", payload.to);
+  console.log(`[EMAIL] Sending "${payload.subject}" → ${payload.to}`);
+
+  // ── Resend (preferred when RESEND_API_KEY is set) ──
+  if (resendClient) {
+    const { data, error } = await resendClient.emails.send({
+      from: config.smtp.from,
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
+    });
+    if (error) {
+      console.error(`[EMAIL] Resend FAILED → ${payload.to}:`, error.message);
+      throw new Error(error.message);
+    }
+    console.log(`[EMAIL] Sent via Resend → ${payload.to} | id: ${data?.id}`);
     return;
   }
 
-  console.log(`[EMAIL] Sending "${payload.subject}" → ${payload.to}`);
-
-  const { data, error } = await resend.emails.send({
-    from: config.smtp.from,
-    to: payload.to,
-    subject: payload.subject,
-    html: payload.html,
-  });
-
-  if (error) {
-    console.error(`[EMAIL] SEND FAILED → ${payload.to}:`, error.message);
-    throw new Error(error.message);
+  // ── nodemailer SMTP fallback (Brevo / local) ──
+  if (smtpTransporter) {
+    try {
+      const info = await smtpTransporter.sendMail({
+        from: config.smtp.from,
+        to: payload.to,
+        subject: payload.subject,
+        html: payload.html,
+      });
+      console.log(`[EMAIL] Sent via SMTP → ${payload.to} | messageId: ${info.messageId}`);
+      return;
+    } catch (err) {
+      console.error(`[EMAIL] SMTP FAILED → ${payload.to}:`, err instanceof Error ? err.message : err);
+      throw err;
+    }
   }
 
-  console.log(`[EMAIL] Sent OK → ${payload.to} | id: ${data?.id}`);
+  console.error("[EMAIL] No transport configured — email skipped to:", payload.to);
 }
 
 export async function sendWelcomeSetupEmail(params: {
@@ -353,36 +405,45 @@ export async function sendAdmissionFormEmail(params: {
   branchName: string;
   pdfBuffer: Buffer;
 }): Promise<void> {
-  if (!config.resendApiKey) return;
+  if (!resendClient && !smtpTransporter) return;
 
   const safeName = params.studentName
     .replace(/[^\w\s\-]/g, "")
     .replace(/\s+/g, "-")
     .slice(0, 80) || "student";
 
-  const { error } = await resend.emails.send({
+  const filename = `Admission-Form-${safeName}.pdf`;
+  const subject = `Admission Application — ${params.courseName} | Future Education`;
+  const html = htmlWrapper(`
+    <div class="title">Your Admission Application</div>
+    <div class="body">Dear <strong>${esc(params.studentName)}</strong>,</div>
+    <div class="body">
+      Your admission assistance application for <strong>${esc(params.courseName)}</strong>
+      has been processed by our team at ${esc(params.branchName)}.
+    </div>
+    <div class="body">
+      Please find your admission form attached to this email. Keep it for your records.
+      Our counsellor will be in touch with you shortly regarding the next steps.
+    </div>
+  `);
+
+  if (resendClient) {
+    const { error } = await resendClient.emails.send({
+      from: config.smtp.from,
+      to: params.to,
+      subject,
+      html,
+      attachments: [{ filename, content: params.pdfBuffer }],
+    });
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  await smtpTransporter!.sendMail({
     from: config.smtp.from,
     to: params.to,
-    subject: `Admission Application — ${params.courseName} | Future Education`,
-    html: htmlWrapper(`
-      <div class="title">Your Admission Application</div>
-      <div class="body">Dear <strong>${esc(params.studentName)}</strong>,</div>
-      <div class="body">
-        Your admission assistance application for <strong>${esc(params.courseName)}</strong>
-        has been processed by our team at ${esc(params.branchName)}.
-      </div>
-      <div class="body">
-        Please find your admission form attached to this email. Keep it for your records.
-        Our counsellor will be in touch with you shortly regarding the next steps.
-      </div>
-    `),
-    attachments: [
-      {
-        filename: `Admission-Form-${safeName}.pdf`,
-        content: params.pdfBuffer,
-      },
-    ],
+    subject,
+    html,
+    attachments: [{ filename, content: params.pdfBuffer, contentType: "application/pdf" }],
   });
-
-  if (error) throw new Error(error.message);
 }
