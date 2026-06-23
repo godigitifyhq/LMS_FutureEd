@@ -449,16 +449,48 @@ export async function interactionRoutes(
         todayStart.getTime() - 6 * 24 * 60 * 60 * 1000,
       );
 
-      const interactions = await fastify.prisma.interactionLog.findMany({
-        where: {
-          userId,
-          type: "CALL",
-          isDeleted: false,
-          createdAt: { gte: sevenDaysAgo, lt: todayEnd },
-        },
-        select: { callDurationSecs: true, createdAt: true },
-        orderBy: { createdAt: "asc" },
-      });
+      const [callInteractions, allTodayInteractions, confirmedToday, newLeadsToday] =
+        await Promise.all([
+          // CALL interactions for the last 7 days (for the chart)
+          fastify.prisma.interactionLog.findMany({
+            where: {
+              userId,
+              type: "CALL",
+              isDeleted: false,
+              createdAt: { gte: sevenDaysAgo, lt: todayEnd },
+            },
+            select: { callDurationSecs: true, createdAt: true },
+            orderBy: { createdAt: "asc" },
+          }),
+
+          // ALL interactions today (for leads-interacted count)
+          fastify.prisma.interactionLog.findMany({
+            where: {
+              userId,
+              isDeleted: false,
+              type: { not: "STATUS_CHANGED" },
+              createdAt: { gte: todayStart, lt: todayEnd },
+            },
+            select: { leadId: true },
+          }),
+
+          // Leads confirmed today by this user
+          fastify.prisma.lead.count({
+            where: {
+              assignedToId: userId,
+              status: "CONFIRMED",
+              confirmedAt: { gte: todayStart, lt: todayEnd },
+            },
+          }),
+
+          // New leads assigned today
+          fastify.prisma.lead.count({
+            where: {
+              assignedToId: userId,
+              createdAt: { gte: todayStart, lt: todayEnd },
+            },
+          }),
+        ]);
 
       // Build daily buckets for the last 7 days
       const dailyMap = new Map<
@@ -473,22 +505,21 @@ export async function interactionRoutes(
 
       let callsToday = 0;
       let secondsToday = 0;
+      const todayKey = todayStart.toISOString().slice(0, 10);
 
-      for (const row of interactions) {
+      for (const row of callInteractions) {
         const key = row.createdAt.toISOString().slice(0, 10);
         const bucket = dailyMap.get(key);
         if (bucket) {
           bucket.callCount++;
           bucket.totalMinutes += row.callDurationSecs ?? 0;
         }
-        const todayKey = todayStart.toISOString().slice(0, 10);
         if (key === todayKey) {
           callsToday++;
           secondsToday += row.callDurationSecs ?? 0;
         }
       }
 
-      // Convert raw seconds in buckets to minutes
       const daily = Array.from(dailyMap.entries()).map(
         ([date, { callCount, totalMinutes }]) => ({
           date,
@@ -497,11 +528,18 @@ export async function interactionRoutes(
         }),
       );
 
+      const leadsInteractedToday = new Set(
+        allTodayInteractions.map((i) => i.leadId),
+      ).size;
+
       return reply.send({
         success: true,
         data: {
           callsToday,
           minutesToday: Math.round(secondsToday / 60),
+          leadsInteractedToday,
+          confirmedToday,
+          newLeadsToday,
           daily,
         },
       });

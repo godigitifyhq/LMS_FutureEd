@@ -12,6 +12,8 @@ import {
   sendMetaLeadFormEmail,
   sendWhatsAppLeadEmail,
   sendLeadCreatedEmail,
+  sendDailyEmployeeReport,
+  sendAdminDailyReport,
 } from "../services/email";
 import { config } from "../config";
 
@@ -123,6 +125,29 @@ export function startNotificationWorker(connection: Redis): Worker {
             firstMessage: data.firstMessage ?? null,
             timestamp: data.timestamp ?? null,
             leadUrl: data.leadUrl,
+          });
+          break;
+
+        case "daily-employee-report":
+          await sendDailyEmployeeReport({
+            to:              data.email,
+            name:            data.name,
+            date:            data.date,
+            callCount:       data.callCount,
+            callMinutes:     data.callMinutes,
+            leadsInteracted: data.leadsInteracted,
+            confirmedToday:  data.confirmedToday,
+            newLeadsToday:   data.newLeadsToday,
+            overdueFollowUps: data.overdueFollowUps,
+          });
+          break;
+
+        case "admin-daily-report":
+          await sendAdminDailyReport({
+            to:        data.to,
+            adminName: data.adminName,
+            date:      data.date,
+            employees: data.employees,
           });
           break;
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Users, CheckCircle2, Clock, TrendingUp, Phone, Timer } from "lucide-react";
+import { Users, CheckCircle2, Clock, TrendingUp, Phone, Timer, Activity, Star, UserPlus } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { FollowUpsDueToday } from "./FollowUpsDueToday";
 import { ActivityFeed } from "./ActivityFeed";
@@ -76,8 +76,11 @@ export function EmployeeDashboard() {
 
   const convRate = myTotal > 0 ? Math.round((confirmed / myTotal) * 100) : 0;
 
-  const callsToday = callStats?.callsToday ?? 0;
-  const minutesToday = callStats?.minutesToday ?? 0;
+  const callsToday          = callStats?.callsToday ?? 0;
+  const minutesToday        = callStats?.minutesToday ?? 0;
+  const leadsInteractedToday = callStats?.leadsInteractedToday ?? 0;
+  const confirmedToday      = callStats?.confirmedToday ?? 0;
+  const newLeadsToday       = callStats?.newLeadsToday ?? 0;
 
   return (
     <div className="space-y-6">
@@ -134,22 +137,57 @@ export function EmployeeDashboard() {
         </div>
       )}
 
-      {/* Today's call performance cards */}
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard
-          title="Calls Today"
-          value={callsToday}
-          subtitle={callsToday === 1 ? "1 call logged" : `${callsToday} calls logged`}
-          icon={<Phone size={16} className="text-blue-600" />}
-          colorVariant="blue"
-        />
-        <StatCard
-          title="Minutes Talked Today"
-          value={minutesToday}
-          subtitle={minutesToday === 0 ? "No duration logged" : `${minutesToday} min on calls`}
-          icon={<Timer size={16} className="text-purple-600" />}
-          colorVariant="orange"
-        />
+      {/* Today's daily report */}
+      <div className="bg-white border border-surface-200 rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity size={14} className="text-primary" />
+          <h3 className="text-sm font-semibold text-gray-800">Today&apos;s Report</h3>
+          <span className="ml-auto text-xs text-gray-400">
+            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="flex flex-col gap-0.5 p-3 rounded-lg bg-blue-50 border border-blue-100">
+            <div className="flex items-center gap-1.5 text-blue-600 mb-1">
+              <Phone size={12} />
+              <span className="text-xs font-medium">Calls Made</span>
+            </div>
+            <span className="text-2xl font-bold text-blue-700">{callsToday}</span>
+            <span className="text-xs text-blue-500">{minutesToday}m talked</span>
+          </div>
+          <div className="flex flex-col gap-0.5 p-3 rounded-lg bg-violet-50 border border-violet-100">
+            <div className="flex items-center gap-1.5 text-violet-600 mb-1">
+              <Users size={12} />
+              <span className="text-xs font-medium">Interacted</span>
+            </div>
+            <span className="text-2xl font-bold text-violet-700">{leadsInteractedToday}</span>
+            <span className="text-xs text-violet-500">leads contacted</span>
+          </div>
+          <div className="flex flex-col gap-0.5 p-3 rounded-lg bg-green-50 border border-green-100">
+            <div className="flex items-center gap-1.5 text-green-600 mb-1">
+              <Star size={12} />
+              <span className="text-xs font-medium">Confirmed</span>
+            </div>
+            <span className="text-2xl font-bold text-green-700">{confirmedToday}</span>
+            <span className="text-xs text-green-500">today&apos;s wins</span>
+          </div>
+          <div className="flex flex-col gap-0.5 p-3 rounded-lg bg-orange-50 border border-orange-100">
+            <div className="flex items-center gap-1.5 text-orange-600 mb-1">
+              <Timer size={12} />
+              <span className="text-xs font-medium">Call Minutes</span>
+            </div>
+            <span className="text-2xl font-bold text-orange-700">{minutesToday}</span>
+            <span className="text-xs text-orange-500">min on calls</span>
+          </div>
+          <div className="flex flex-col gap-0.5 p-3 rounded-lg bg-teal-50 border border-teal-100">
+            <div className="flex items-center gap-1.5 text-teal-600 mb-1">
+              <UserPlus size={12} />
+              <span className="text-xs font-medium">New Leads</span>
+            </div>
+            <span className="text-2xl font-bold text-teal-700">{newLeadsToday}</span>
+            <span className="text-xs text-teal-500">assigned today</span>
+          </div>
+        </div>
       </div>
 
       {/* Call activity chart */}

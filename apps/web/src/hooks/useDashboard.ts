@@ -31,7 +31,7 @@ export function useEmployeePerformance(period: Period) {
       );
       return data.data;
     },
-    staleTime: 5 * 60_000,
+    staleTime: 60_000, // 1 min — keeps data fresh across period switches
   });
 }
 
@@ -132,6 +132,9 @@ export type DailyCallStat = { date: string; callCount: number; totalMinutes: num
 export type MyCallStats = {
   callsToday: number;
   minutesToday: number;
+  leadsInteractedToday: number;
+  confirmedToday: number;
+  newLeadsToday: number;
   daily: DailyCallStat[];
 };
 

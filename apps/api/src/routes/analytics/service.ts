@@ -165,53 +165,86 @@ export async function getEmployeePerformance(params: {
 
   // Fetch all lead data in bulk — one query, process in JS
   // This avoids N+1 (one query per employee)
-  const [allLeads, allInteractions, overdueLeads] = await Promise.all([
-    prisma.lead.findMany({
-      where: {
-        ...branchFilter,
-        assignedToId: { in: employees.map((e) => e.id) },
-        createdAt: { gte: from, lte: to },
-      },
-      select: {
-        id: true,
-        assignedToId: true,
-        status: true,
-        confirmedAt: true,
-        createdAt: true,
-        nextFollowUpAt: true,
-      },
-    }),
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const employeeIds = employees.map((e) => e.id);
 
-    // First interaction per lead — for response time calculation
-    prisma.interactionLog.findMany({
-      where: {
-        lead: {
-          assignedToId: { in: employees.map((e) => e.id) },
+  const [allLeads, allInteractions, overdueLeads, allEmployeeInteractions, last7DayInteractions] =
+    await Promise.all([
+      prisma.lead.findMany({
+        where: {
+          ...branchFilter,
+          assignedToId: { in: employeeIds },
           createdAt: { gte: from, lte: to },
         },
-        type: { not: "STATUS_CHANGED" }, // skip system logs
-        isDeleted: false,
-      },
-      select: {
-        id: true,
-        leadId: true,
-        userId: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "asc" },
-    }),
+        select: {
+          id: true,
+          assignedToId: true,
+          status: true,
+          confirmedAt: true,
+          createdAt: true,
+          nextFollowUpAt: true,
+        },
+      }),
 
-    // Leads with overdue follow-ups per employee
-    prisma.lead.findMany({
-      where: {
-        ...branchFilter,
-        assignedToId: { in: employees.map((e) => e.id) },
-        nextFollowUpAt: { lte: new Date() },
-        status: { notIn: ["CONFIRMED", "DUPLICATE", "LOST"] },
-      },
-      select: { assignedToId: true },
-    }),
-  ]);
+      // First interaction per lead — for response time calculation
+      prisma.interactionLog.findMany({
+        where: {
+          lead: {
+            assignedToId: { in: employeeIds },
+            createdAt: { gte: from, lte: to },
+          },
+          type: { not: "STATUS_CHANGED" },
+          isDeleted: false,
+        },
+        select: { id: true, leadId: true, userId: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+      }),
+
+      // Leads with overdue follow-ups per employee
+      prisma.lead.findMany({
+        where: {
+          ...branchFilter,
+          assignedToId: { in: employeeIds },
+          nextFollowUpAt: { lte: new Date() },
+          status: { notIn: ["CONFIRMED", "DUPLICATE", "LOST"] },
+        },
+        select: { assignedToId: true },
+      }),
+
+      // All interactions BY employee during period — for call/engagement stats
+      prisma.interactionLog.findMany({
+        where: {
+          userId: { in: employeeIds },
+          createdAt: { gte: from, lte: to },
+          isDeleted: false,
+          type: { not: "STATUS_CHANGED" },
+        },
+        select: {
+          userId: true,
+          leadId: true,
+          type: true,
+          callDurationSecs: true,
+          createdAt: true,
+        },
+      }),
+
+      // Last 7 days interactions for daily activity chart (always fixed window)
+      prisma.interactionLog.findMany({
+        where: {
+          userId: { in: employeeIds },
+          createdAt: { gte: sevenDaysAgo },
+          isDeleted: false,
+          type: { not: "STATUS_CHANGED" },
+        },
+        select: {
+          userId: true,
+          leadId: true,
+          type: true,
+          callDurationSecs: true,
+          createdAt: true,
+        },
+      }),
+    ]);
 
   // Process in JS — group by employee
   const metrics = employees.map((employee) => {
@@ -275,6 +308,39 @@ export async function getEmployeePerformance(params: {
           : 0),
     );
 
+    // ── Call & engagement stats (filtered by interaction date in period) ──
+    const empInteractions = allEmployeeInteractions.filter(
+      (i) => i.userId === employee.id,
+    );
+    const empCalls = empInteractions.filter((i) => i.type === "CALL");
+    const callCount = empCalls.length;
+    const callMinutes = Math.round(
+      empCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0) / 60,
+    );
+    const leadsInteracted = new Set(empInteractions.map((i) => i.leadId)).size;
+
+    // ── 7-day daily activity for sparkline chart ──
+    const empDailyLogs = last7DayInteractions.filter(
+      (i) => i.userId === employee.id,
+    );
+    const dailyActivity = Array.from({ length: 7 }, (_, idx) => {
+      const d = new Date(sevenDaysAgo);
+      d.setDate(d.getDate() + idx + 1);
+      const dateStr = d.toISOString().split("T")[0]!;
+      const dayLogs = empDailyLogs.filter(
+        (i) => i.createdAt.toISOString().split("T")[0] === dateStr,
+      );
+      const dayCalls = dayLogs.filter((i) => i.type === "CALL");
+      return {
+        date: dateStr,
+        interactions: dayLogs.length,
+        calls: dayCalls.length,
+        minutes: Math.round(
+          dayCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0) / 60,
+        ),
+      };
+    });
+
     return {
       employee: { id: employee.id, name: employee.name, email: employee.email },
       metrics: {
@@ -287,6 +353,10 @@ export async function getEmployeePerformance(params: {
         overdueFollowUps: employeeOverdue,
         followUpComplianceRate,
         performanceScore,
+        callCount,
+        callMinutes,
+        leadsInteracted,
+        dailyActivity,
       },
     };
   });

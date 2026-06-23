@@ -503,3 +503,117 @@ export async function sendAdmissionFormEmail(params: {
     attachments: [{ filename, content: params.pdfBuffer, contentType: "application/pdf" }],
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DAILY REPORTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+type EmployeeDailyStats = {
+  name: string;
+  callCount: number;
+  callMinutes: number;
+  leadsInteracted: number;
+  confirmedToday: number;
+  newLeadsToday: number;
+  overdueFollowUps: number;
+};
+
+function statRow(label: string, value: string | number, color = "#374151"): string {
+  return `
+    <tr>
+      <td style="padding:6px 12px;font-size:13px;color:#6b7280;border-bottom:1px solid #f3f4f6;">${esc(label)}</td>
+      <td style="padding:6px 12px;font-size:14px;font-weight:600;color:${color};border-bottom:1px solid #f3f4f6;text-align:right;">${esc(String(value))}</td>
+    </tr>`;
+}
+
+export async function sendDailyEmployeeReport(params: EmployeeDailyStats & { to: string; date: string }): Promise<void> {
+  const scoreColor = params.confirmedToday > 0 ? "#16a34a" : params.callCount > 0 ? "#d97706" : "#ef4444";
+
+  await send({
+    to: params.to,
+    subject: `Your Daily Report — ${params.date} | Future Education`,
+    html: htmlWrapper(`
+      <div class="title">Your Daily Performance</div>
+      <div class="body">Hi <strong>${esc(params.name)}</strong>, here's your summary for <strong>${esc(params.date)}</strong>.</div>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:8px;overflow:hidden;">
+        ${statRow("Calls Made",          params.callCount,         "#2563eb")}
+        ${statRow("Call Minutes",        `${params.callMinutes}m`, "#ea580c")}
+        ${statRow("Leads Interacted",    params.leadsInteracted,   "#7c3aed")}
+        ${statRow("Confirmations Today", params.confirmedToday,    "#16a34a")}
+        ${statRow("New Leads Assigned",  params.newLeadsToday,     "#0891b2")}
+        ${statRow("Overdue Follow-ups",  params.overdueFollowUps,  params.overdueFollowUps > 0 ? "#ef4444" : "#6b7280")}
+      </table>
+      <div class="body" style="color:${scoreColor};font-weight:600;">
+        ${params.confirmedToday > 0
+          ? `Great work today — ${params.confirmedToday} confirmation${params.confirmedToday > 1 ? "s" : ""}!`
+          : params.callCount > 0
+          ? "Good effort today. Keep following up — confirmations are coming!"
+          : "No activity logged today. Remember to log your calls and interactions."}
+      </div>
+      <a href="${esc(config.frontendUrl)}/dashboard" class="btn" style="color:#ffffff;text-decoration:none;">
+        View Dashboard
+      </a>
+    `),
+  });
+}
+
+export async function sendAdminDailyReport(params: {
+  to: string;
+  adminName: string;
+  date: string;
+  employees: EmployeeDailyStats[];
+}): Promise<void> {
+  const sorted = [...params.employees].sort((a, b) => b.confirmedToday - a.confirmedToday || b.callCount - a.callCount);
+  const totalCalls     = sorted.reduce((s, e) => s + e.callCount, 0);
+  const totalMins      = sorted.reduce((s, e) => s + e.callMinutes, 0);
+  const totalConfirmed = sorted.reduce((s, e) => s + e.confirmedToday, 0);
+  const totalInteracted = sorted.reduce((s, e) => s + e.leadsInteracted, 0);
+
+  const rows = sorted.map((emp) => `
+    <tr>
+      <td style="padding:7px 10px;font-size:13px;color:#374151;border-bottom:1px solid #f3f4f6;">${esc(emp.name)}</td>
+      <td style="padding:7px 10px;font-size:13px;text-align:center;color:#2563eb;font-weight:600;border-bottom:1px solid #f3f4f6;">${emp.callCount}</td>
+      <td style="padding:7px 10px;font-size:13px;text-align:center;color:#ea580c;font-weight:600;border-bottom:1px solid #f3f4f6;">${emp.callMinutes}m</td>
+      <td style="padding:7px 10px;font-size:13px;text-align:center;color:#7c3aed;font-weight:600;border-bottom:1px solid #f3f4f6;">${emp.leadsInteracted}</td>
+      <td style="padding:7px 10px;font-size:13px;text-align:center;color:${emp.confirmedToday > 0 ? "#16a34a" : "#9ca3af"};font-weight:600;border-bottom:1px solid #f3f4f6;">${emp.confirmedToday}</td>
+      <td style="padding:7px 10px;font-size:13px;text-align:center;color:${emp.overdueFollowUps > 0 ? "#ef4444" : "#9ca3af"};font-weight:600;border-bottom:1px solid #f3f4f6;">${emp.overdueFollowUps}</td>
+    </tr>`).join("");
+
+  const headerCell = (t: string) =>
+    `<th style="padding:8px 10px;font-size:11px;text-align:center;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em;background:#f9fafb;border-bottom:2px solid #e5e7eb;">${t}</th>`;
+
+  await send({
+    to: params.to,
+    subject: `Team Daily Report — ${params.date} | Future Education`,
+    html: htmlWrapper(`
+      <div class="title">Team Daily Summary</div>
+      <div class="body">Hi <strong>${esc(params.adminName)}</strong>, here is today's team performance for <strong>${esc(params.date)}</strong>.</div>
+
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#f9fafb;border-radius:4px;overflow:hidden;">
+        ${statRow("Total Calls",        totalCalls,     "#2563eb")}
+        ${statRow("Total Call Minutes", `${totalMins}m`,"#ea580c")}
+        ${statRow("Leads Interacted",   totalInteracted,"#7c3aed")}
+        ${statRow("Confirmations Today",totalConfirmed, "#16a34a")}
+      </table>
+
+      <div class="body" style="font-weight:600;color:#374151;margin-top:20px;">Individual Breakdown</div>
+      <table style="width:100%;border-collapse:collapse;margin:10px 0;">
+        <thead>
+          <tr>
+            ${headerCell("Employee")}
+            ${headerCell("Calls")}
+            ${headerCell("Mins")}
+            ${headerCell("Interacted")}
+            ${headerCell("Confirmed")}
+            ${headerCell("Overdue")}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <a href="${esc(config.frontendUrl)}/dashboard" class="btn" style="color:#ffffff;text-decoration:none;">
+        View Full Dashboard
+      </a>
+    `),
+  });
+}
