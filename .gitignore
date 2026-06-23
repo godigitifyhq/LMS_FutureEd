@@ -12,6 +12,7 @@ dist
 .env
 .env.local
 .env.production
+.env.backup
 
 # OS
 .DS_Store
@@ -19,3 +20,4 @@ dist
 # Prisma
 packages/db/src/generated
 apps/api/uploads/
+.env*.backup
