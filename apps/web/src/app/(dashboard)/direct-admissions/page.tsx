@@ -19,6 +19,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { extractApiError } from "@/lib/utils";
 import { useCourses } from "@/hooks/useCourses";
+import { useAuthStore } from "@/store/auth";
 
 type FormState = {
   studentName: string;
@@ -283,6 +284,7 @@ function SelectField({
 
 export default function DirectAdmissionsPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const { data: coursesData } = useCourses();
   const courses = (coursesData as Array<{ id: string; name: string; isActive: boolean }> | undefined)?.filter((c) => c.isActive) ?? [];
   const [stage, setStage] = useState<1 | 2 | 3>(1);
@@ -468,6 +470,7 @@ export default function DirectAdmissionsPage() {
         extraCurricular: form.extraCurricular || undefined,
         authorisedBy: form.authorisedBy || undefined,
         remarks: form.remarks || undefined,
+        submittedByUserId: user?.id || undefined,
       });
 
       const leadId = data.data.leadId as string;

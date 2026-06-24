@@ -60,6 +60,7 @@ const PublicDirectAdmissionSchema = z.object({
   authorisedBy: z.string().trim().max(120).optional(),
   course: z.string().trim().max(120).optional(),
   remarks: z.string().trim().max(500).optional(),
+  submittedByUserId: z.string().cuid().optional(), // set by logged-in employee; assignee for this admission
 });
 
 function normalizeEnum<T extends string>(
@@ -105,7 +106,17 @@ export async function publicDirectAdmissionRoute(
       where: { isActive: true },
       select: { id: true },
     });
-    const creator = await fastify.prisma.user.findFirst({
+
+    // If submitted by a logged-in employee, use them as creator/assignee.
+    // Otherwise fall back to the first admin (public kiosk/walk-in scenario).
+    const submitter = body.submittedByUserId
+      ? await fastify.prisma.user.findFirst({
+          where: { id: body.submittedByUserId, isActive: true },
+          select: { id: true },
+        })
+      : null;
+
+    const creator = submitter ?? await fastify.prisma.user.findFirst({
       where: { role: { in: ["ADMIN", "SUB_ADMIN"] }, isActive: true },
       select: { id: true },
     });
@@ -328,6 +339,7 @@ export async function publicDirectAdmissionRoute(
           remarks: body.remarks ?? null,
           branchId: branch.id,
           createdById: creator.id,
+          assignedToId: creator.id,  // assign to submitting employee (or admin for walk-ins)
           status: LeadStatus.INTERESTED,
         },
       });
