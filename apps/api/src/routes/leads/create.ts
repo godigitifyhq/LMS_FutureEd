@@ -29,7 +29,7 @@ export async function createLeadRoute(fastify: FastifyInstance): Promise<void> {
       }
       const body = validation.data;
 
-      const { id: userId, role, branchId } = request.user;
+      const { id: userId, branchId } = request.user;
 
       // ── Step 1: Duplicate detection ──
       const existingLeads = await findDuplicateLeads({
@@ -202,12 +202,9 @@ export async function createLeadRoute(fastify: FastifyInstance): Promise<void> {
       }
 
       // ── Step 2: Resolve assignee ──
-      // EMPLOYEEs are assigned to themselves; ADMIN/SUB_ADMIN default to
-      // unassigned so the lead appears in the unassigned queue for triage.
-      const assignedToId: string | null =
-        role === "EMPLOYEE"
-          ? userId
-          : (body.assignedToId ?? null);
+      // Default to self-assign for all roles; admin/sub-admin can optionally
+      // pass a different assignedToId in the form body to assign elsewhere.
+      const assignedToId: string | null = body.assignedToId ?? userId;
 
       // ── Step 3: Create lead ──
       const lead = await fastify.prisma.$transaction(async (tx) => {
