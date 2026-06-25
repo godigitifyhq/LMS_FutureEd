@@ -312,6 +312,8 @@ function fmtReportDateTime(value: string | null): string {
   });
 }
 
+const LEADERBOARD_SKELETON_OPACITY = ["opacity-100", "opacity-90", "opacity-80", "opacity-60", "opacity-40", "opacity-20"] as const;
+
 function LeaderboardSkeleton({ view }: { view: "card" | "table" }) {
   if (view === "card") {
     return (
@@ -325,7 +327,7 @@ function LeaderboardSkeleton({ view }: { view: "card" | "table" }) {
   return (
     <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="h-14 border-b border-surface-50 animate-pulse bg-surface-50" style={{ opacity: 1 - i * 0.12 }} />
+        <div key={i} className={`h-14 border-b border-surface-50 animate-pulse bg-surface-50 ${LEADERBOARD_SKELETON_OPACITY[i] ?? "opacity-10"}`} />
       ))}
     </div>
   );

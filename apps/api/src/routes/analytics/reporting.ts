@@ -144,10 +144,9 @@ export async function computeEmployeeStats(params: {
     leads,
     interactions,
     overdueLeads,
-    confirmedWithRevenue,
     tasks,
   ] = await Promise.all([
-    // Leads created (or assigned) in period
+    // Leads created in period, including revenue data — single source for confirmedLeads + revenue
     prisma.lead.findMany({
       where: {
         ...branchFilter,
@@ -159,6 +158,9 @@ export async function computeEmployeeStats(params: {
         assignedToId: true,
         status: true,
         createdAt: true,
+        confirmedApplication: {
+          select: { bookingAmount: true, admissionAmount: true },
+        },
       },
     }),
 
@@ -191,22 +193,6 @@ export async function computeEmployeeStats(params: {
       select: { assignedToId: true },
     }),
 
-    // Revenue from confirmed leads in period
-    prisma.lead.findMany({
-      where: {
-        ...branchFilter,
-        assignedToId: { in: ids },
-        status: "CONFIRMED",
-        confirmedAt: { gte: from, lte: to },
-      },
-      select: {
-        assignedToId: true,
-        confirmedApplication: {
-          select: { bookingAmount: true, admissionAmount: true },
-        },
-      },
-    }),
-
     // Tasks in period
     prisma.task.findMany({
       where: {
@@ -229,7 +215,6 @@ export async function computeEmployeeStats(params: {
     const empInt        = interactions.filter((i) => i.userId === emp.id);
     const empCalls      = empInt.filter((i) => i.type === "CALL");
     const empOverdue    = overdueLeads.filter((l) => l.assignedToId === emp.id);
-    const empRevLeads   = confirmedWithRevenue.filter((l) => l.assignedToId === emp.id);
     const empTasks      = tasks.filter((t) => t.assignedToId === emp.id);
 
     const totalLeads      = empLeads.length;
@@ -267,14 +252,18 @@ export async function computeEmployeeStats(params: {
     const totalInteractions = empInt.length;
     const leadsInteracted   = new Set(empInt.map((i) => i.leadId)).size;
 
-    const totalRevenue = empRevLeads.reduce((s, l) => {
+    // Revenue from confirmed leads created in the same period — consistent with confirmedLeads count
+    const totalRevenue = empLeads.reduce((s, l) => {
+      if (l.status !== "CONFIRMED") return s;
       const app = l.confirmedApplication;
       return s + (app?.bookingAmount ?? 0) + (app?.admissionAmount ?? 0);
     }, 0);
 
-    const overdueFollowUps       = empOverdue.length;
+    const overdueFollowUps = empOverdue.length;
+    // Clamp to [0, 100] — overdueFollowUps is ALL-TIME while totalLeads is period-scoped,
+    // so the raw formula can go negative when an employee has more historical overdue than new leads.
     const followUpComplianceRate = totalLeads > 0
-      ? Math.round(((totalLeads - overdueFollowUps) / totalLeads) * 100 * 10) / 10
+      ? Math.max(0, Math.min(100, Math.round(((totalLeads - overdueFollowUps) / totalLeads) * 100 * 10) / 10))
       : 100;
     const confirmationRate = totalLeads > 0
       ? Math.round((confirmedLeads / totalLeads) * 100 * 10) / 10
