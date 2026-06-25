@@ -1,8 +1,9 @@
 "use client";
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -13,6 +14,7 @@ import {
   Send,
   Trash2,
   Upload,
+  UserCheck,
   X,
 } from "lucide-react";
 import api from "@/lib/api";
@@ -22,6 +24,7 @@ import { useCourses } from "@/hooks/useCourses";
 import { useAuthStore } from "@/store/auth";
 
 type FormState = {
+  fileNumber: string;
   studentName: string;
   phone: string;
   email: string;
@@ -120,6 +123,7 @@ const emptyAcademic: AcademicRow = {
 };
 
 const emptyForm: FormState = {
+  fileNumber: "",
   studentName: "",
   phone: "",
   email: "",
@@ -307,6 +311,50 @@ export default function DirectAdmissionsPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [duplicateLead, setDuplicateLead] = useState<{
+    id: string;
+    name: string;
+    phone: string;
+    status: string;
+  } | null>(null);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const phoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (phoneTimerRef.current) clearTimeout(phoneTimerRef.current);
+    if (!form.phone.match(/^[6-9]\d{9}$/)) {
+      setDuplicateLead(null);
+      setCheckingDuplicate(false);
+      return;
+    }
+    setCheckingDuplicate(true);
+    phoneTimerRef.current = setTimeout(async () => {
+      try {
+        const { data } = await api.get(
+          `/leads/public/direct-admission/check-duplicate?phone=${form.phone}`,
+        );
+        const leads = data?.data?.leads as
+          | Array<{ id: string; studentName: string; phone: string; status: string }>
+          | undefined;
+        const match = leads?.[0];
+        if (match) {
+          setDuplicateLead({
+            id: match.id,
+            name: match.studentName,
+            phone: match.phone,
+            status: match.status,
+          });
+        } else {
+          setDuplicateLead(null);
+        }
+      } catch {
+        setDuplicateLead(null);
+      } finally {
+        setCheckingDuplicate(false);
+      }
+    }, 400);
+  }, [form.phone]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function f(field: keyof FormState) {
     return {
       value: form[field],
@@ -416,6 +464,7 @@ export default function DirectAdmissionsPage() {
     setSaving(true);
     try {
       const { data } = await api.post("/leads/public/direct-admission", {
+        fileNumber: form.fileNumber || undefined,
         studentName: form.studentName,
         phone: form.phone,
         fatherName: form.fatherName || undefined,
@@ -619,6 +668,19 @@ export default function DirectAdmissionsPage() {
         {/* ── Stage 1: Student & Family ── */}
         {stage === 1 && (
           <>
+            {/* File Number — prominent at top */}
+            <div className="rounded-xl border-2 border-primary/20 bg-primary-50/40 p-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                File Number
+              </p>
+              <Field
+                label="File No."
+                placeholder="e.g. 45/2026 (leave blank to auto-generate)"
+                {...f("fileNumber")}
+                helperText="Optional — leave blank to auto-generate"
+              />
+            </div>
+
             <div className="rounded-xl border border-surface-200 bg-white p-6">
               <Section title="Student Details">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -634,11 +696,19 @@ export default function DirectAdmissionsPage() {
                     error={formErrors["studentName"]}
                     helperText={!formErrors["studentName"] ? "Letters only" : undefined}
                   />
-                  <Field
-                    label="Phone *"
-                    placeholder="e.g. 9876543210"
-                    {...phoneField("phone")}
-                  />
+                  <div>
+                    <Field
+                      label="Phone *"
+                      placeholder="e.g. 9876543210"
+                      {...phoneField("phone")}
+                    />
+                    {checkingDuplicate && (
+                      <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
+                        <Loader2 size={11} className="animate-spin" />
+                        Checking…
+                      </div>
+                    )}
+                  </div>
                   <Field
                     label="Email"
                     type="email"
@@ -674,6 +744,41 @@ export default function DirectAdmissionsPage() {
                   </div>
                 </div>
               </Section>
+
+              {/* Duplicate warning — shown when phone matches an existing lead */}
+              {duplicateLead && (
+                <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                      <AlertTriangle size={16} className="text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-amber-800">
+                        Phone Already Registered
+                      </p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        This mobile number is linked to an existing lead. Submitting will update their admission record.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-white px-4 py-2.5">
+                    <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                      <UserCheck size={13} className="text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{duplicateLead.name}</p>
+                      <p className="text-xs text-gray-400">{duplicateLead.phone} · {duplicateLead.status.replace(/_/g, " ")}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/leads/${duplicateLead.id}`)}
+                      className="shrink-0 text-xs text-primary font-semibold hover:underline"
+                    >
+                      View Lead →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6 rounded-xl border border-surface-200 bg-white p-6">

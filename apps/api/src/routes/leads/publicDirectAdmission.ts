@@ -60,6 +60,7 @@ const PublicDirectAdmissionSchema = z.object({
   authorisedBy: z.string().trim().max(120).optional(),
   course: z.string().trim().max(120).optional(),
   remarks: z.string().trim().max(500).optional(),
+  fileNumber: z.string().trim().max(50).optional(),
   submittedByUserId: z.string().cuid().optional(), // set by logged-in employee; assignee for this admission
 });
 
@@ -300,7 +301,9 @@ export async function publicDirectAdmissionRoute(
             : 1;
           idData["admissionId"] = `S${String(nextNum).padStart(4, "0")}`;
         }
-        if (!existing?.fileNumber) {
+        if (body.fileNumber) {
+          idData["fileNumber"] = body.fileNumber;
+        } else if (!existing?.fileNumber) {
           const yearApps = await tx.confirmedApplication.findMany({
             where: { fileNumber: { endsWith: `/${year}` } },
             select: { fileNumber: true },
@@ -434,7 +437,9 @@ export async function publicDirectAdmissionRoute(
           : 1;
         idData["admissionId"] = `S${String(nextNum).padStart(4, "0")}`;
       }
-      if (!existing?.fileNumber) {
+      if (body.fileNumber) {
+        idData["fileNumber"] = body.fileNumber;
+      } else if (!existing?.fileNumber) {
         const yearApps = await tx.confirmedApplication.findMany({
           where: { fileNumber: { endsWith: `/${year}` } },
           select: { fileNumber: true },
