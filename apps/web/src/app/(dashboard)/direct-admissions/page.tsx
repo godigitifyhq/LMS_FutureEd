@@ -98,6 +98,20 @@ const QUAL_LEVELS = [
   { key: "POST_GRADUATION", label: "PG / Equivalent" },
 ] as const;
 
+const DRAFT_KEY = "direct-admission-draft";
+
+function loadDraft<T>(field: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return fallback;
+    const draft = JSON.parse(raw) as Record<string, unknown>;
+    return (draft[field] as T) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const DOC_TYPES = [
   "Marksheet",
   "ID Proof",
@@ -291,17 +305,23 @@ export default function DirectAdmissionsPage() {
   const { user } = useAuthStore();
   const { data: coursesData } = useCourses();
   const courses = (coursesData as Array<{ id: string; name: string; isActive: boolean }> | undefined)?.filter((c) => c.isActive) ?? [];
-  const [stage, setStage] = useState<1 | 2 | 3>(1);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [academic, setAcademic] = useState<Record<string, AcademicRow>>({
-    TENTH: { ...emptyAcademic },
-    TWELFTH: { ...emptyAcademic },
-    GRADUATION: { ...emptyAcademic },
-    POST_GRADUATION: { ...emptyAcademic },
-  });
-  const [exams, setExams] = useState<ExamRow[]>([
-    { examName: "", rollNo: "", score: "", rank: "" },
-  ]);
+  const [stage, setStage] = useState<1 | 2 | 3>(() =>
+    loadDraft<1 | 2 | 3>("stage", 1),
+  );
+  const [form, setForm] = useState<FormState>(() =>
+    loadDraft<FormState>("form", emptyForm),
+  );
+  const [academic, setAcademic] = useState<Record<string, AcademicRow>>(() =>
+    loadDraft("academic", {
+      TENTH: { ...emptyAcademic },
+      TWELFTH: { ...emptyAcademic },
+      GRADUATION: { ...emptyAcademic },
+      POST_GRADUATION: { ...emptyAcademic },
+    }),
+  );
+  const [exams, setExams] = useState<ExamRow[]>(() =>
+    loadDraft<ExamRow[]>("exams", [{ examName: "", rollNo: "", score: "", rank: "" }]),
+  );
   const [documents, setDocuments] = useState<DocFile[]>([]);
   const [newDocType, setNewDocType] = useState("Marksheet");
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
@@ -354,6 +374,16 @@ export default function DirectAdmissionsPage() {
       }
     }, 400);
   }, [form.phone]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist form progress to sessionStorage so state survives tab switches and navigation
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ stage, form, academic, exams }),
+      );
+    } catch {}
+  }, [stage, form, academic, exams]);
 
   function f(field: keyof FormState) {
     return {
@@ -567,6 +597,7 @@ export default function DirectAdmissionsPage() {
         );
       }
 
+      sessionStorage.removeItem(DRAFT_KEY);
       setSubmittedLeadId(leadId);
       toast.success("Direct admission submitted successfully");
     } catch (err) {
@@ -600,6 +631,7 @@ export default function DirectAdmissionsPage() {
           <button
             type="button"
             onClick={() => {
+              sessionStorage.removeItem(DRAFT_KEY);
               setForm(emptyForm);
               setAcademic({
                 TENTH: { ...emptyAcademic },
