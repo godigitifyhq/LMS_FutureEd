@@ -140,6 +140,7 @@ export default function PipelinePage() {
                     toolbar: { show: false },
                     events: {
                       dataPointSelection: (_event, _chartContext, config) => {
+                        if (!config) return;
                         const status = pipeline[config.dataPointIndex]?.status;
                         if (status) {
                           router.push(`/leads?status=${status}`);

@@ -61,6 +61,8 @@ export type EmployeeStats = {
   team: string | null;
   isOnline: boolean; // lastActiveAt within last 5 minutes
   lastActiveAt: Date | null;
+  lastCallAt: Date | null;
+  lastConnectedCallAt: Date | null;
 
   // Leads
   totalLeads: number;
@@ -172,6 +174,7 @@ export async function computeEmployeeStats(params: {
         userId: true,
         leadId: true,
         type: true,
+        createdAt: true,
         callDurationSecs: true,
         callOutcome: true,
       },
@@ -246,6 +249,20 @@ export async function computeEmployeeStats(params: {
     const totalCallMinutes = Math.round(
       empCalls.reduce((s, c) => s + (c.callDurationSecs ?? 0), 0) / 60,
     );
+    const lastCallAt = empCalls.reduce<Date | null>(
+      (latest, call) =>
+        !latest || call.createdAt > latest ? call.createdAt : latest,
+      null,
+    );
+    const lastConnectedCallAt = empCalls.reduce<Date | null>(
+      (latest, call) => {
+        if (call.callOutcome && call.callOutcome !== "CONNECTED") {
+          return latest;
+        }
+        return !latest || call.createdAt > latest ? call.createdAt : latest;
+      },
+      null,
+    );
 
     const totalInteractions = empInt.length;
     const leadsInteracted   = new Set(empInt.map((i) => i.leadId)).size;
@@ -277,6 +294,8 @@ export async function computeEmployeeStats(params: {
       team: emp.team,
       isOnline: emp.lastActiveAt ? emp.lastActiveAt >= onlineThreshold : false,
       lastActiveAt: emp.lastActiveAt,
+      lastCallAt,
+      lastConnectedCallAt,
       totalLeads,
       newLeads,
       confirmedLeads,

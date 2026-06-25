@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Play, Phone } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useCallReport } from "@/hooks/useReports";
+import type { CallReportResponse, CallReportRow } from "@/hooks/useReports";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
 
@@ -54,9 +55,13 @@ export default function CallsPage() {
   };
 
   const { data, isLoading, isError, refetch } = useCallReport(filters);
-  const payload = data?.data;
-  const rows = payload?.rows ?? [];
-  const totals = payload?.totals ?? {};
+  const payload: CallReportResponse | undefined = data?.data;
+  const rows: CallReportRow[] = payload?.rows ?? [];
+  const totals: CallReportResponse["totals"] = payload?.totals ?? {
+    calls: 0,
+    connectedCalls: 0,
+    totalMinutes: 0,
+  };
   const resolved = payload?.period ?? null;
 
   return (
@@ -125,7 +130,7 @@ export default function CallsPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r: any) => (
+                {rows.map((r) => (
                   <tr key={r.id} className="border-b border-surface-50 hover:bg-surface-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">{r.employeeName}</td>
                     <td className="px-4 py-3 whitespace-nowrap">

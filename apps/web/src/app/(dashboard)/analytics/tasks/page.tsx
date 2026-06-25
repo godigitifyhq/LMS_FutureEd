@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { CheckSquare } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useTaskReport } from "@/hooks/useReports";
+import type { TaskReportResponse, TaskReportRow } from "@/hooks/useReports";
 import { useEmployeeList } from "@/hooks/useLeads";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
@@ -60,9 +61,14 @@ export default function TasksPage() {
 
   const { data, isLoading, isError, refetch } = useTaskReport(filters);
   const { data: employees } = useEmployeeList();
-  const payload = data?.data;
-  const rows = payload?.rows ?? [];
-  const totals = payload?.totals ?? {};
+  const payload: TaskReportResponse | undefined = data?.data;
+  const rows: TaskReportRow[] = payload?.rows ?? [];
+  const totals: TaskReportResponse["totals"] = payload?.totals ?? {
+    total: 0,
+    pending: 0,
+    completed: 0,
+    overdue: 0,
+  };
   const resolved = payload?.period ?? null;
 
   return (
@@ -158,7 +164,7 @@ export default function TasksPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r: any) => (
+                {rows.map((r) => (
                   <tr
                     key={r.id}
                     className={cn("border-b border-surface-50 hover:bg-surface-50", r.leadId && "cursor-pointer")}

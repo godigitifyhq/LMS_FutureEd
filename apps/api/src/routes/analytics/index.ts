@@ -641,6 +641,12 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       Email: s.employeeEmail,
       Designation: s.designation ?? "",
       Team: s.team ?? "",
+      "Last Call": s.lastCallAt
+        ? new Date(s.lastCallAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+        : "",
+      "Last Pickup": s.lastConnectedCallAt
+        ? new Date(s.lastConnectedCallAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+        : "",
       "Total Leads": s.totalLeads,
       Confirmed: s.confirmedLeads,
       Lost: s.lostLeads,

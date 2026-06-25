@@ -6,34 +6,10 @@ import Link from "next/link";
 import { Trophy, TrendingUp, TrendingDown, Minus, Users, Phone, CheckCircle2, DollarSign, ChevronRight } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useLeaderboard } from "@/hooks/useReports";
+import type { LeaderboardRow } from "@/hooks/useReports";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
-
-type LeaderboardRow = {
-  rank: number;
-  prevRank: number | null;
-  rankDelta: number | null;
-  employeeId: string;
-  employeeName: string;
-  employeeEmail: string;
-  designation: string | null;
-  team: string | null;
-  isOnline: boolean;
-  totalLeads: number;
-  confirmedLeads: number;
-  lostLeads: number;
-  totalCalls: number;
-  connectedCalls: number;
-  totalCallMinutes: number;
-  leadsInteracted: number;
-  totalRevenue: number;
-  confirmationRate: number;
-  overdueFollowUps: number;
-  followUpComplianceRate: number;
-  tasksPending: number;
-  tasksCompleted: number;
-};
 
 export default function LeaderboardPage() {
   const searchParams = useSearchParams();
@@ -71,7 +47,11 @@ export default function LeaderboardPage() {
     ...(period === "custom" && dateFrom ? { dateFrom } : {}),
     ...(period === "custom" && dateTo   ? { dateTo }   : {}),
   };
-  const detailQuery = new URLSearchParams(exportParams).toString();
+  const detailQuery = new URLSearchParams(
+    Object.entries(exportParams).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  ).toString();
 
   return (
     <ReportShell
@@ -143,7 +123,7 @@ export default function LeaderboardPage() {
             <table className="w-full text-sm min-w-225">
               <thead>
                 <tr className="bg-surface-50 border-b border-surface-200">
-                  {["Rank", "Employee", "Status", "Leads", "Confirmed", "Conv %", "Calls", "Revenue", "Overdue", ""].map((h) => (
+                  {["Rank", "Employee", "Status", "Leads", "Confirmed", "Conv %", "Calls", "Talk Time", "Last Call", "Last Pickup", "Revenue", "Overdue", ""].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -195,6 +175,17 @@ export default function LeaderboardPage() {
                       <Link href={`/analytics/calls?employeeId=${row.employeeId}&${detailQuery}`} className="hover:underline">
                         {row.totalCalls}
                       </Link>
+                    </td>
+                    <td className="px-4 py-3 text-orange-500 font-medium whitespace-nowrap">
+                      <Link href={`/analytics/calls?employeeId=${row.employeeId}&${detailQuery}`} className="hover:underline">
+                        {row.totalCallMinutes}m
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
+                      {fmtReportDateTime(row.lastCallAt)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
+                      {fmtReportDateTime(row.lastConnectedCallAt)}
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-800">{formatCurrency(row.totalRevenue)}</td>
                     <td className="px-4 py-3">
@@ -282,6 +273,18 @@ function LeaderboardCard({ row, detailQuery }: { row: LeaderboardRow; detailQuer
         <Kpi icon={Phone}       label="Calls"     value={row.totalCalls}      color="text-blue-600" />
         <Kpi icon={DollarSign}  label="Revenue"   value={formatCurrency(row.totalRevenue)} color="text-violet-600" />
       </div>
+
+      <div className="mt-3 pt-3 border-t border-surface-100 space-y-1">
+        <p className="text-[11px] text-gray-500">
+          Talk time: <span className="font-medium text-gray-700">{row.totalCallMinutes}m</span>
+        </p>
+        <p className="text-[11px] text-gray-500">
+          Last call: <span className="font-medium text-gray-700">{fmtReportDateTime(row.lastCallAt)}</span>
+        </p>
+        <p className="text-[11px] text-gray-500">
+          Last pickup: <span className="font-medium text-gray-700">{fmtReportDateTime(row.lastConnectedCallAt)}</span>
+        </p>
+      </div>
     </Link>
   );
 }
@@ -296,6 +299,17 @@ function Kpi({ icon: Icon, label, value, color }: { icon: React.ElementType; lab
       </div>
     </div>
   );
+}
+
+function fmtReportDateTime(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function LeaderboardSkeleton({ view }: { view: "card" | "table" }) {

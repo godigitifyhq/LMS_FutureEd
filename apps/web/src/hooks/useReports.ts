@@ -15,6 +15,147 @@ export type ReportFilters = {
 
 type ApiResponse<T = unknown> = { data: T };
 
+export type LeaderboardRow = {
+  rank: number;
+  prevRank: number | null;
+  rankDelta: number | null;
+  employeeId: string;
+  employeeName: string;
+  employeeEmail: string;
+  designation: string | null;
+  team: string | null;
+  isOnline: boolean;
+  lastCallAt: string | null;
+  lastConnectedCallAt: string | null;
+  totalLeads: number;
+  confirmedLeads: number;
+  lostLeads: number;
+  totalCalls: number;
+  connectedCalls: number;
+  totalCallMinutes: number;
+  leadsInteracted: number;
+  totalRevenue: number;
+  confirmationRate: number;
+  overdueFollowUps: number;
+  followUpComplianceRate: number;
+  tasksPending: number;
+  tasksCompleted: number;
+};
+
+export type LeaderboardResponse = {
+  rows: LeaderboardRow[];
+  period: { from: string; to: string };
+};
+
+export type EmployeeDetailStats = {
+  employeeName: string;
+  employeeEmail: string;
+  designation: string | null;
+  team: string | null;
+  isOnline: boolean;
+  lastCallAt: string | null;
+  lastConnectedCallAt: string | null;
+  totalLeads: number;
+  confirmedLeads: number;
+  lostLeads: number;
+  activeLeads: number;
+  totalCalls: number;
+  connectedCalls: number;
+  missedCalls: number;
+  totalCallMinutes: number;
+  totalInteractions: number;
+  leadsInteracted: number;
+  totalRevenue: number;
+  overdueFollowUps: number;
+  followUpComplianceRate: number;
+  confirmationRate: number;
+  tasksPending: number;
+  tasksCompleted: number;
+  tasksOverdue: number;
+};
+
+export type DailyCallStat = {
+  date: string;
+  totalCalls: number;
+  connectedCalls: number;
+  missedCalls: number;
+  totalMinutes: number;
+};
+
+export type HourlyCallStat = {
+  hour: number;
+  totalCalls: number;
+};
+
+export type CallEntry = {
+  id: string;
+  leadId: string | null;
+  leadName: string;
+  leadPhone: string;
+  outcome: string | null;
+  durationSecs: number | null;
+  recordingUrl: string | null;
+  createdAt: string;
+};
+
+export type EmployeeDetailResponse = {
+  stats: EmployeeDetailStats;
+  dailyCalls: DailyCallStat[];
+  hourlyCalls: HourlyCallStat[];
+  recentCalls: CallEntry[];
+  period: { from: string; to: string };
+};
+
+export type CallReportRow = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  leadId: string;
+  leadName: string;
+  leadPhone: string;
+  outcome: string | null;
+  direction: string | null;
+  durationSecs: number | null;
+  durationLabel: string;
+  recordingUrl: string | null;
+  createdAt: string;
+};
+
+export type CallReportResponse = {
+  rows: CallReportRow[];
+  totals: {
+    calls: number;
+    connectedCalls: number;
+    totalMinutes: number;
+  };
+  period: { from: string; to: string };
+};
+
+export type TaskReportRow = {
+  id: string;
+  title: string;
+  status: string;
+  assigneeName: string;
+  assigneeId: string;
+  leadName: string | null;
+  leadId: string | null;
+  dueAt: string | null;
+  completedAt: string | null;
+  isOverdue: boolean;
+  createdAt: string;
+};
+
+export type TaskReportResponse = {
+  rows: TaskReportRow[];
+  totals: {
+    total: number;
+    pending: number;
+    completed: number;
+    overdue: number;
+  };
+  period: { from: string; to: string };
+};
+
 function buildQs(filters: Record<string, string | undefined>): string {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(filters)) {
@@ -30,7 +171,7 @@ async function apiFetch<T>(url: string): Promise<ApiResponse<T>> {
 
 // ── Leaderboard ──────────────────────────────────────────────
 export function useLeaderboard(filters: ReportFilters) {
-  return useQuery({
+  return useQuery<ApiResponse<LeaderboardResponse>>({
     queryKey: ["leaderboard", filters],
     queryFn:  () => apiFetch(`/analytics/leaderboard${buildQs(filters as any)}`),
     staleTime: 5 * 60 * 1000,
@@ -40,7 +181,7 @@ export function useLeaderboard(filters: ReportFilters) {
 
 // ── Employee Detail ──────────────────────────────────────────
 export function useEmployeeDetail(employeeId: string, filters: ReportFilters) {
-  return useQuery({
+  return useQuery<ApiResponse<EmployeeDetailResponse>>({
     queryKey: ["employee-detail", employeeId, filters],
     queryFn:  () => apiFetch(`/analytics/employee/${employeeId}${buildQs(filters as any)}`),
     enabled: !!employeeId,
@@ -52,7 +193,7 @@ export function useEmployeeDetail(employeeId: string, filters: ReportFilters) {
 export type CallReportFilters = ReportFilters & { outcome?: string };
 
 export function useCallReport(filters: CallReportFilters) {
-  return useQuery({
+  return useQuery<ApiResponse<CallReportResponse>>({
     queryKey: ["call-report", filters],
     queryFn:  () => apiFetch(`/analytics/calls${buildQs(filters as any)}`),
     staleTime: 5 * 60 * 1000,
@@ -68,7 +209,7 @@ export type TaskReportFilters = ReportFilters & {
 };
 
 export function useTaskReport(filters: TaskReportFilters) {
-  return useQuery({
+  return useQuery<ApiResponse<TaskReportResponse>>({
     queryKey: ["task-report", filters],
     queryFn:  () => apiFetch(`/analytics/tasks${buildQs(filters as any)}`),
     staleTime: 5 * 60 * 1000,

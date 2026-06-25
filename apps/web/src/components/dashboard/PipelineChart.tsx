@@ -67,6 +67,7 @@ export function PipelineChart() {
       background: "transparent",
       events: {
         dataPointSelection: (_event, _chartContext, config) => {
+          if (!config) return;
           const status = sorted[config.dataPointIndex]?.status;
           if (status) {
             router.push(`/leads?status=${status}`);
