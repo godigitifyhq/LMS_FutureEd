@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Play, Phone } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
@@ -53,9 +54,10 @@ export default function CallsPage() {
   };
 
   const { data, isLoading, isError, refetch } = useCallReport(filters);
-  const rows     = (data as any)?.data?.rows    ?? [];
-  const totals   = (data as any)?.data?.totals  ?? {};
-  const resolved = (data as any)?.data?.period  ?? null;
+  const payload = data?.data;
+  const rows = payload?.rows ?? [];
+  const totals = payload?.totals ?? {};
+  const resolved = payload?.period ?? null;
 
   return (
     <ReportShell
@@ -126,7 +128,15 @@ export default function CallsPage() {
                 {rows.map((r: any) => (
                   <tr key={r.id} className="border-b border-surface-50 hover:bg-surface-50 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap">{r.employeeName}</td>
-                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{r.leadName}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {r.leadId ? (
+                        <Link href={`/leads/${r.leadId}`} className="text-gray-700 hover:text-primary hover:underline">
+                          {r.leadName}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-700">{r.leadName}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{r.leadPhone}</td>
                     <td className="px-4 py-3">
                       {r.outcome ? (

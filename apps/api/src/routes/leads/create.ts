@@ -14,6 +14,7 @@ import {
   invalidateAnalyticsCache,
   invalidateActivityCache,
 } from "../../services/cache";
+import { syncLeadFollowUpTask } from "../../services/followUpTasks";
 
 export async function createLeadRoute(fastify: FastifyInstance): Promise<void> {
   fastify.post(
@@ -160,6 +161,28 @@ export async function createLeadRoute(fastify: FastifyInstance): Promise<void> {
                 where: { id: continuation.existingLeadId },
                 data: { nextFollowUpAt: continuation.newFollowUpAt },
               });
+
+              const existingLead = await tx.lead.findUnique({
+                where: { id: continuation.existingLeadId },
+                select: {
+                  id: true,
+                  studentName: true,
+                  branchId: true,
+                  assignedToId: true,
+                  nextFollowUpAt: true,
+                },
+              });
+
+              if (existingLead) {
+                await syncLeadFollowUpTask(tx, {
+                  leadId: existingLead.id,
+                  studentName: existingLead.studentName,
+                  branchId: existingLead.branchId,
+                  assignedToId: existingLead.assignedToId,
+                  actorUserId: userId,
+                  nextFollowUpAt: existingLead.nextFollowUpAt,
+                });
+              }
             }
           });
 
@@ -253,6 +276,15 @@ export async function createLeadRoute(fastify: FastifyInstance): Promise<void> {
             note: "Lead created",
             statusAfter: LeadStatus.NEW,
           },
+        });
+
+        await syncLeadFollowUpTask(tx, {
+          leadId: newLead.id,
+          studentName: newLead.studentName,
+          branchId: newLead.branchId,
+          assignedToId: newLead.assignedToId,
+          actorUserId: userId,
+          nextFollowUpAt: newLead.nextFollowUpAt,
         });
 
         return newLead;

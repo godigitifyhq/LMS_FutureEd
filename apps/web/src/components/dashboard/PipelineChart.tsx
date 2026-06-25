@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { STATUS_CONFIG } from "@/config/leadStatus";
 import { usePipeline } from "@/hooks/useDashboard";
 import type { LeadStatus } from "@lms/types";
@@ -8,6 +9,7 @@ import type { LeadStatus } from "@lms/types";
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 export function PipelineChart() {
+  const router = useRouter();
   const { data, isLoading } = usePipeline();
 
   if (isLoading) {
@@ -63,6 +65,14 @@ export function PipelineChart() {
       type: "bar",
       toolbar: { show: false },
       background: "transparent",
+      events: {
+        dataPointSelection: (_event, _chartContext, config) => {
+          const status = sorted[config.dataPointIndex]?.status;
+          if (status) {
+            router.push(`/leads?status=${status}`);
+          }
+        },
+      },
     },
     plotOptions: {
       bar: {

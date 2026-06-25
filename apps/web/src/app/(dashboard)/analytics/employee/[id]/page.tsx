@@ -50,6 +50,7 @@ type HourlyCallStat = { hour: number; totalCalls: number };
 
 type CallEntry = {
   id: string;
+  leadId: string | null;
   leadName: string;
   leadPhone: string;
   outcome: string | null;
@@ -84,12 +85,20 @@ export default function EmployeeDetailPage() {
   };
 
   const { data, isLoading, isError, refetch } = useEmployeeDetail(id, filters);
-  const detail = (data as any)?.data;
+  const detail = data?.data;
   const stats: EmployeeStats | null    = detail?.stats ?? null;
   const dailyCalls: DailyCallStat[]    = detail?.dailyCalls ?? [];
   const hourlyCalls: HourlyCallStat[]  = detail?.hourlyCalls ?? [];
   const recentCalls: CallEntry[]       = detail?.recentCalls ?? [];
   const resolvedRange                   = detail?.period ?? null;
+  const reportQs = new URLSearchParams();
+  reportQs.set("period", period);
+  if (period === "custom" && dateFrom) reportQs.set("dateFrom", dateFrom);
+  if (period === "custom" && dateTo) reportQs.set("dateTo", dateTo);
+  const reportQuery = reportQs.toString();
+  const leadsBase = `/leads?assignedToId=${id}`;
+  const callsBase = `/analytics/calls?employeeId=${id}&${reportQuery}`;
+  const tasksBase = `/analytics/tasks?employeeId=${id}&${reportQuery}`;
 
   return (
     <ReportShell
@@ -121,16 +130,16 @@ export default function EmployeeDetailPage() {
         <div className="space-y-6">
           {/* KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-            <KpiCard icon={Users}       label="Total Leads"  value={stats.totalLeads}         color="text-gray-700" />
-            <KpiCard icon={CheckCircle2} label="Confirmed"   value={`${stats.confirmedLeads} (${stats.confirmationRate}%)`} color="text-green-600" />
-            <KpiCard icon={Phone}       label="Total Calls"  value={stats.totalCalls}         color="text-blue-600" />
-            <KpiCard icon={Phone}       label="Connected"    value={stats.connectedCalls}     color="text-green-600" />
-            <KpiCard icon={Clock}       label="Call Mins"    value={`${stats.totalCallMinutes}m`} color="text-orange-500" />
-            <KpiCard icon={TrendingUp}  label="Revenue"      value={formatCurrency(stats.totalRevenue)} color="text-violet-600" />
-            <KpiCard icon={AlertCircle} label="Overdue"      value={stats.overdueFollowUps}   color={stats.overdueFollowUps > 0 ? "text-red-500" : "text-gray-400"} />
-            <KpiCard icon={Users}       label="Interacted"   value={stats.leadsInteracted}    color="text-indigo-600" />
-            <KpiCard icon={CheckCircle2} label="Tasks Done"  value={stats.tasksCompleted}     color="text-teal-600" />
-            <KpiCard icon={AlertCircle} label="Tasks Overdue" value={stats.tasksOverdue}      color={stats.tasksOverdue > 0 ? "text-red-500" : "text-gray-400"} />
+            <KpiCard icon={Users} label="Total Leads" value={stats.totalLeads} color="text-gray-700" href={leadsBase} />
+            <KpiCard icon={CheckCircle2} label="Confirmed" value={`${stats.confirmedLeads} (${stats.confirmationRate}%)`} color="text-green-600" href={`${leadsBase}&status=CONFIRMED`} />
+            <KpiCard icon={Phone} label="Total Calls" value={stats.totalCalls} color="text-blue-600" href={callsBase} />
+            <KpiCard icon={Phone} label="Connected" value={stats.connectedCalls} color="text-green-600" href={`${callsBase}&outcome=CONNECTED`} />
+            <KpiCard icon={Clock} label="Call Mins" value={`${stats.totalCallMinutes}m`} color="text-orange-500" href={callsBase} />
+            <KpiCard icon={TrendingUp} label="Revenue" value={formatCurrency(stats.totalRevenue)} color="text-violet-600" href={`${leadsBase}&status=CONFIRMED`} />
+            <KpiCard icon={AlertCircle} label="Overdue" value={stats.overdueFollowUps} color={stats.overdueFollowUps > 0 ? "text-red-500" : "text-gray-400"} href={`${leadsBase}&overdue=true`} />
+            <KpiCard icon={Users} label="Interacted" value={stats.leadsInteracted} color="text-indigo-600" href={`${leadsBase}&interactedByUserId=${id}`} />
+            <KpiCard icon={CheckCircle2} label="Tasks Done" value={stats.tasksCompleted} color="text-teal-600" href={`${tasksBase}&status=COMPLETED`} />
+            <KpiCard icon={AlertCircle} label="Tasks Overdue" value={stats.tasksOverdue} color={stats.tasksOverdue > 0 ? "text-red-500" : "text-gray-400"} href={`${tasksBase}&overdue=true`} />
           </div>
 
           {/* Charts */}
@@ -216,7 +225,15 @@ export default function EmployeeDetailPage() {
                   <tbody>
                     {recentCalls.map((call) => (
                       <tr key={call.id} className="border-b border-surface-50 hover:bg-surface-50">
-                        <td className="px-4 py-2.5 font-medium text-gray-800">{call.leadName}</td>
+                        <td className="px-4 py-2.5 font-medium">
+                          {call.leadId ? (
+                            <Link href={`/leads/${call.leadId}`} className="text-gray-800 hover:text-primary hover:underline">
+                              {call.leadName}
+                            </Link>
+                          ) : (
+                            <span className="text-gray-800">{call.leadName}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 text-gray-500">{call.leadPhone}</td>
                         <td className="px-4 py-2.5">
                           <OutcomeBadge outcome={call.outcome} />
@@ -254,9 +271,9 @@ export default function EmployeeDetailPage() {
   );
 }
 
-function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string | number; color: string }) {
-  return (
-    <div className="bg-white border border-surface-200 rounded-xl p-3">
+function KpiCard({ icon: Icon, label, value, color, href }: { icon: React.ElementType; label: string; value: string | number; color: string; href?: string }) {
+  const content = (
+    <div className={cn("bg-white border border-surface-200 rounded-xl p-3", href && "hover:border-primary hover:bg-surface-50 transition-colors")}>
       <div className="flex items-center gap-2 mb-1.5">
         <Icon size={14} className={color} />
         <span className="text-xs text-gray-400">{label}</span>
@@ -264,6 +281,12 @@ function KpiCard({ icon: Icon, label, value, color }: { icon: React.ElementType;
       <p className={cn("text-lg font-bold", color)}>{value}</p>
     </div>
   );
+
+  if (href) {
+    return <Link href={href}>{content}</Link>;
+  }
+
+  return content;
 }
 
 function OutcomeBadge({ outcome }: { outcome: string | null }) {

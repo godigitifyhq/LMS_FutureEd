@@ -297,11 +297,8 @@ export async function getEmployeePerformance(params: {
     );
     const empCalls = empInteractions.filter((i) => i.type === "CALL");
 
-    // callCount = leads currently in ATTEMPTED_CONTACT or CONNECTED status (status-based, not interaction-based)
-    // This matches the "Called" card link which filters by these statuses
-    const callCount = employeeLeads.filter(
-      (l) => l.status === "ATTEMPTED_CONTACT" || l.status === "CONNECTED",
-    ).length;
+    // Use actual CALL interactions so this matches leaderboard / employee detail.
+    const callCount = empCalls.length;
     const callMinutes = Math.round(
       empCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0) / 60,
     );

@@ -8,6 +8,7 @@ import {
   invalidateAnalyticsCache,
   invalidateActivityCache,
 } from "../../services/cache";
+import { syncLeadFollowUpTask } from "../../services/followUpTasks";
 
 export async function assignLeadRoute(fastify: FastifyInstance): Promise<void> {
   fastify.post(
@@ -45,7 +46,13 @@ export async function assignLeadRoute(fastify: FastifyInstance): Promise<void> {
       const [lead, newAssignee] = await Promise.all([
         fastify.prisma.lead.findUnique({
           where: { id },
-          select: { id: true, status: true },
+          select: {
+            id: true,
+            status: true,
+            studentName: true,
+            branchId: true,
+            nextFollowUpAt: true,
+          },
         }),
         fastify.prisma.user.findUnique({
           where: { id: assignedToId },
@@ -87,6 +94,15 @@ export async function assignLeadRoute(fastify: FastifyInstance): Promise<void> {
         await tx.lead.update({
           where: { id },
           data: { assignedToId },
+        });
+
+        await syncLeadFollowUpTask(tx, {
+          leadId: lead.id,
+          studentName: lead.studentName,
+          branchId: lead.branchId,
+          assignedToId,
+          actorUserId: userId,
+          nextFollowUpAt: lead.nextFollowUpAt,
         });
 
         await tx.assignmentHistory.create({

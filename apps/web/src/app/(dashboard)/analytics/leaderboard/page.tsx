@@ -62,14 +62,16 @@ export default function LeaderboardPage() {
   };
 
   const { data, isLoading, isError, refetch } = useLeaderboard(filters);
-  const rows: LeaderboardRow[] = (data as any)?.data?.rows ?? [];
-  const resolvedRange = (data as any)?.data?.period ?? null;
+  const payload = data?.data;
+  const rows: LeaderboardRow[] = payload?.rows ?? [];
+  const resolvedRange = payload?.period ?? null;
 
   const exportParams: Record<string, string | undefined> = {
     period,
     ...(period === "custom" && dateFrom ? { dateFrom } : {}),
     ...(period === "custom" && dateTo   ? { dateTo }   : {}),
   };
+  const detailQuery = new URLSearchParams(exportParams).toString();
 
   return (
     <ReportShell
@@ -130,7 +132,7 @@ export default function LeaderboardPage() {
       {!isLoading && !isError && rows.length > 0 && view === "card" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {rows.map((row) => (
-            <LeaderboardCard key={row.employeeId} row={row} />
+            <LeaderboardCard key={row.employeeId} row={row} detailQuery={detailQuery} />
           ))}
         </div>
       )}
@@ -178,21 +180,35 @@ export default function LeaderboardPage() {
                         {row.isOnline ? "Online" : "Offline"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-700">{row.totalLeads}</td>
-                    <td className="px-4 py-3 font-semibold text-green-600">{row.confirmedLeads}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      <Link href={`/leads?assignedToId=${row.employeeId}`} className="hover:text-primary hover:underline">
+                        {row.totalLeads}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-green-600">
+                      <Link href={`/leads?assignedToId=${row.employeeId}&status=CONFIRMED`} className="hover:underline">
+                        {row.confirmedLeads}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 font-semibold text-gray-800">{row.confirmationRate}%</td>
-                    <td className="px-4 py-3 text-blue-600">{row.totalCalls}</td>
+                    <td className="px-4 py-3 text-blue-600">
+                      <Link href={`/analytics/calls?employeeId=${row.employeeId}&${detailQuery}`} className="hover:underline">
+                        {row.totalCalls}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 font-medium text-gray-800">{formatCurrency(row.totalRevenue)}</td>
                     <td className="px-4 py-3">
                       {row.overdueFollowUps > 0 ? (
-                        <span className="text-red-500 font-medium">{row.overdueFollowUps}</span>
+                        <Link href={`/leads?assignedToId=${row.employeeId}&overdue=true`} className="text-red-500 font-medium hover:underline">
+                          {row.overdueFollowUps}
+                        </Link>
                       ) : (
                         <span className="text-gray-400">0</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/analytics/employee/${row.employeeId}?period=${period}${dateFrom ? `&dateFrom=${dateFrom}` : ""}${dateTo ? `&dateTo=${dateTo}` : ""}`}
+                        href={`/analytics/employee/${row.employeeId}?${detailQuery}`}
                         className="text-primary hover:underline flex items-center gap-0.5 whitespace-nowrap text-xs"
                       >
                         View <ChevronRight size={12} />
@@ -230,10 +246,10 @@ function RankCell({ rank, delta }: { rank: number; delta: number | null }) {
   );
 }
 
-function LeaderboardCard({ row }: { row: LeaderboardRow }) {
+function LeaderboardCard({ row, detailQuery }: { row: LeaderboardRow; detailQuery: string }) {
   return (
     <Link
-      href={`/analytics/employee/${row.employeeId}`}
+      href={`/analytics/employee/${row.employeeId}?${detailQuery}`}
       className="bg-white border border-surface-200 rounded-xl p-4 hover:border-primary hover:shadow-sm transition-all"
     >
       <div className="flex items-start justify-between mb-3">

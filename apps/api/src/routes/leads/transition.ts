@@ -14,6 +14,7 @@ import {
   invalidateAnalyticsCache,
   invalidateActivityCache,
 } from "../../services/cache";
+import { syncLeadFollowUpTask } from "../../services/followUpTasks";
 
 type LeadDraftSource = {
   phone: string;
@@ -139,6 +140,7 @@ export async function transitionLeadRoute(
           boardUniversity: true,
           passingYear: true,
           percentage: true,
+          nextFollowUpAt: true,
           status: true,
           assignedTo: { select: { id: true } },
           createdBy: { select: { id: true } },
@@ -328,6 +330,22 @@ export async function transitionLeadRoute(
             oldValue: { status: previousStatus },
             newValue: { status: toStatus },
           },
+        });
+
+        const shouldCancelFollowUpTask =
+          toStatus === LeadStatus.CONFIRMED ||
+          toStatus === LeadStatus.LOST ||
+          toStatus === LeadStatus.DUPLICATE;
+
+        await syncLeadFollowUpTask(tx, {
+          leadId: lead.id,
+          studentName: lead.studentName,
+          branchId: lead.branchId,
+          assignedToId: lead.assignedTo?.id ?? null,
+          actorUserId: userId,
+          nextFollowUpAt: shouldCancelFollowUpTask
+            ? null
+            : lead.nextFollowUpAt,
         });
 
         // Create ConfirmedApplication record when confirmed, generate IDs

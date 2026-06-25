@@ -4,6 +4,7 @@
 // Rather than duplicating the query logic, we embed those sections directly.
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ReportShell } from "@/components/reports/ReportShell";
@@ -104,6 +105,7 @@ export default function PipelinePage() {
   const pipelineLabels = pipeline.map((s) => STATUS_LABELS[s.status] ?? s.status);
   const pipelineCounts = pipeline.map((s) => s.count);
   const pipelineColors = pipeline.map((s) => STATUS_CHART_COLORS[s.status] ?? "#6b7280");
+  const totalPipelineCount = pipelineCounts.reduce((a: number, b: number) => a + b, 0);
 
   return (
     <ReportShell
@@ -134,7 +136,17 @@ export default function PipelinePage() {
                 height={260}
                 series={[{ name: "Leads", data: pipelineCounts }]}
                 options={{
-                  chart:       { toolbar: { show: false } },
+                  chart:       {
+                    toolbar: { show: false },
+                    events: {
+                      dataPointSelection: (_event, _chartContext, config) => {
+                        const status = pipeline[config.dataPointIndex]?.status;
+                        if (status) {
+                          router.push(`/leads?status=${status}`);
+                        }
+                      },
+                    },
+                  },
                   colors:      pipelineColors,
                   plotOptions: { bar: { distributed: true, horizontal: true, barHeight: "70%" } },
                   xaxis:       { categories: pipelineLabels },
@@ -186,17 +198,25 @@ export default function PipelinePage() {
               </thead>
               <tbody>
                 {pipeline.map((s) => {
-                  const total = pipelineCounts.reduce((a: number, b: number) => a + b, 0);
-                  const pct   = total > 0 ? Math.round((s.count / total) * 100) : 0;
+                  const pct = totalPipelineCount > 0
+                    ? Math.round((s.count / totalPipelineCount) * 100)
+                    : 0;
                   return (
                     <tr key={s.status} className="border-b border-surface-50 hover:bg-surface-50">
                       <td className="px-4 py-2.5">
-                        <span className="flex items-center gap-2">
+                        <Link
+                          href={`/leads?status=${s.status}`}
+                          className="flex items-center gap-2 hover:text-primary transition-colors"
+                        >
                           <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", STATUS_DOT_CLASS[s.status] ?? "bg-gray-400")} />
                           {STATUS_LABELS[s.status] ?? s.status}
-                        </span>
+                        </Link>
                       </td>
-                      <td className="px-4 py-2.5 font-semibold text-gray-700">{s.count}</td>
+                      <td className="px-4 py-2.5 font-semibold text-gray-700">
+                        <Link href={`/leads?status=${s.status}`} className="hover:text-primary transition-colors">
+                          {s.count}
+                        </Link>
+                      </td>
                       <td className="px-4 py-2.5 text-gray-500">{pct}%</td>
                     </tr>
                   );

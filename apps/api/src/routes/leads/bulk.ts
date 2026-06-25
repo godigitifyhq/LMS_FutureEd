@@ -9,6 +9,11 @@ import {
   BulkStatusSchema,
 } from "@lms/types";
 import { validateBody } from "../../middleware/validate";
+import {
+  invalidateActivityCache,
+  invalidateAnalyticsCache,
+} from "../../services/cache";
+import { syncLeadFollowUpTask } from "../../services/followUpTasks";
 
 export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /leads/bulk-assign ──
@@ -42,6 +47,19 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
       const { id: userId } = request.user;
 
       await fastify.prisma.$transaction(async (tx) => {
+        const leadsToAssign = await tx.lead.findMany({
+          where: {
+            id: { in: leadIds },
+            status: { notIn: ["CONFIRMED", "DUPLICATE"] },
+          },
+          select: {
+            id: true,
+            studentName: true,
+            branchId: true,
+            nextFollowUpAt: true,
+          },
+        });
+
         await tx.lead.updateMany({
           where: {
             id: { in: leadIds },
@@ -49,6 +67,17 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
           },
           data: { assignedToId },
         });
+
+        for (const lead of leadsToAssign) {
+          await syncLeadFollowUpTask(tx, {
+            leadId: lead.id,
+            studentName: lead.studentName,
+            branchId: lead.branchId,
+            assignedToId,
+            actorUserId: userId,
+            nextFollowUpAt: lead.nextFollowUpAt,
+          });
+        }
 
         await tx.assignmentHistory.createMany({
           data: leadIds.map((leadId) => ({
@@ -68,6 +97,13 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
           })),
         });
       });
+
+      await invalidateAnalyticsCache(fastify.redis);
+      await invalidateActivityCache(
+        fastify.redis,
+        request.user.branchId,
+        userId,
+      );
 
       return reply.status(200).send({
         success: true,
@@ -111,10 +147,39 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
 
       if (successful.length > 0) {
         await fastify.prisma.$transaction(async (tx) => {
+          const leadsForTasks = await tx.lead.findMany({
+            where: { id: { in: successful } },
+            select: {
+              id: true,
+              studentName: true,
+              branchId: true,
+              assignedToId: true,
+              nextFollowUpAt: true,
+            },
+          });
+
           await tx.lead.updateMany({
             where: { id: { in: successful } },
             data: { status: toStatus },
           });
+
+          const shouldCancelFollowUpTask =
+            toStatus === "CONFIRMED" ||
+            toStatus === "LOST" ||
+            toStatus === "DUPLICATE";
+
+          for (const lead of leadsForTasks) {
+            await syncLeadFollowUpTask(tx, {
+              leadId: lead.id,
+              studentName: lead.studentName,
+              branchId: lead.branchId,
+              assignedToId: lead.assignedToId,
+              actorUserId: userId,
+              nextFollowUpAt: shouldCancelFollowUpTask
+                ? null
+                : lead.nextFollowUpAt,
+            });
+          }
 
           await tx.interactionLog.createMany({
             data: successful.map((leadId) => ({
@@ -136,6 +201,13 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
             })),
           });
         });
+
+        await invalidateAnalyticsCache(fastify.redis);
+        await invalidateActivityCache(
+          fastify.redis,
+          request.user.branchId,
+          userId,
+        );
       }
 
       return reply.status(200).send({

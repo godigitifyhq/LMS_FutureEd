@@ -75,6 +75,7 @@ function ExpandedRow({ emp }: { emp: EmployeeRow }) {
   const m = emp.metrics;
   const id = emp.employee.id;
   const base = `/leads?assignedToId=${id}`;
+  const callsBase = `/analytics/calls?employeeId=${id}`;
 
   return (
     <tr>
@@ -82,8 +83,7 @@ function ExpandedRow({ emp }: { emp: EmployeeRow }) {
         <p className="text-xs text-gray-400 mb-2">Click any card to view those leads</p>
         <div className="flex flex-wrap gap-2 mb-3">
           <StatMini icon={Users}        label="All Leads"  value={m.totalAssigned}          color="bg-gray-100 text-gray-600"    href={`${base}`} />
-          {/* Called = leads in ATTEMPTED_CONTACT or CONNECTED status */}
-          <StatMini icon={Phone}        label="Called"     value={m.callCount ?? 0}         color="bg-blue-50 text-blue-600"     href={`${base}&statuses=ATTEMPTED_CONTACT,CONNECTED`} />
+          <StatMini icon={Phone}        label="Calls"      value={m.callCount ?? 0}         color="bg-blue-50 text-blue-600"     href={callsBase} />
           <StatMini icon={Clock}        label="Call Mins"  value={`${m.callMinutes ?? 0}m`} color="bg-orange-50 text-orange-500" />
           <StatMini icon={Users}        label="Interacted" value={m.leadsInteracted ?? 0}   color="bg-violet-50 text-violet-600" href={`${base}&interactedByUserId=${id}`} />
           <StatMini icon={CheckCircle2} label="Confirmed"  value={m.confirmed}               color="bg-green-50 text-green-600"   href={`${base}&status=CONFIRMED`} />

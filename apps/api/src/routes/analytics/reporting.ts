@@ -383,6 +383,7 @@ export type EmployeeDetailReport = {
   hourlyCalls: HourlyCallStat[]; // distribution over 24 hours
   recentCalls: {
     id: string;
+    leadId: string | null;
     leadName: string;
     leadPhone: string;
     outcome: string | null;
@@ -424,7 +425,7 @@ export async function getEmployeeDetailReport(params: {
       callOutcome: true,
       callRecordingUrl: true,
       createdAt: true,
-      lead: { select: { studentName: true, phone: true } },
+      lead: { select: { id: true, studentName: true, phone: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -466,6 +467,7 @@ export async function getEmployeeDetailReport(params: {
 
   const recentCalls = calls.slice(0, 50).map((c) => ({
     id:           c.id,
+    leadId:       c.lead?.id ?? null,
     leadName:     c.lead?.studentName ?? "Unknown",
     leadPhone:    c.lead?.phone ?? "—",
     outcome:      c.callOutcome,
@@ -608,12 +610,14 @@ export async function getTaskReport(params: {
   branchId?: string;
   employeeId?: string;
   status?: string;
+  overdue?: boolean;
+  title?: string;
 }): Promise<{
   rows: TaskReportRow[];
   totals: { total: number; pending: number; completed: number; overdue: number };
   period: { from: string; to: string };
 }> {
-  const { prisma, branchId, employeeId, status } = params;
+  const { prisma, branchId, employeeId, status, overdue, title } = params;
   const { from, to } = getDateRangeIST(params.period, params.dateFrom, params.dateTo);
   const now = new Date();
 
@@ -622,6 +626,15 @@ export async function getTaskReport(params: {
       ...(branchId ? { branchId } : {}),
       ...(employeeId ? { assignedToId: employeeId } : {}),
       ...(status ? { status: status as any } : {}),
+      ...(title
+        ? { title: { contains: title, mode: "insensitive" as const } }
+        : {}),
+      ...(overdue
+        ? {
+            dueAt: { lt: now },
+            status: { notIn: ["COMPLETED", "CANCELLED"] },
+          }
+        : {}),
       createdAt: { gte: from, lte: to },
     },
     select: {
@@ -656,11 +669,11 @@ export async function getTaskReport(params: {
   const total     = taskRows.length;
   const pending   = taskRows.filter((r) => r.status === "PENDING" || r.status === "IN_PROGRESS").length;
   const completed = taskRows.filter((r) => r.status === "COMPLETED").length;
-  const overdue   = taskRows.filter((r) => r.isOverdue).length;
+  const overdueCount = taskRows.filter((r) => r.isOverdue).length;
 
   return {
     rows: taskRows,
-    totals: { total, pending, completed, overdue },
+    totals: { total, pending, completed, overdue: overdueCount },
     period: {
       from: from.toISOString().split("T")[0]!,
       to:   to.toISOString().split("T")[0]!,

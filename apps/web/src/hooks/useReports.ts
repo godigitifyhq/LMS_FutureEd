@@ -61,7 +61,11 @@ export function useCallReport(filters: CallReportFilters) {
 }
 
 // ── Task Report ──────────────────────────────────────────────
-export type TaskReportFilters = ReportFilters & { status?: string };
+export type TaskReportFilters = ReportFilters & {
+  status?: string;
+  overdue?: string;
+  title?: string;
+};
 
 export function useTaskReport(filters: TaskReportFilters) {
   return useQuery({

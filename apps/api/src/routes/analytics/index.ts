@@ -503,12 +503,14 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       branchId?: string;
       employeeId?: string;
       status?: string;
+      overdue?: string;
+      title?: string;
     };
     const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
     const cacheKey = buildCacheKey("tasks", {
       period: q.period, dateFrom: q.dateFrom, dateTo: q.dateTo, branchId,
-      employeeId: q.employeeId, status: q.status,
+      employeeId: q.employeeId, status: q.status, overdue: q.overdue, title: q.title,
     });
 
     const data = await getCached(fastify.redis, cacheKey, REPORT_TTL, () =>
@@ -520,6 +522,8 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
         ...(branchId !== undefined ? { branchId } : {}),
         ...(q.employeeId !== undefined ? { employeeId: q.employeeId } : {}),
         ...(q.status !== undefined ? { status: q.status } : {}),
+        ...(q.overdue === "true" ? { overdue: true } : {}),
+        ...(q.title !== undefined ? { title: q.title } : {}),
       }),
     );
 
@@ -691,7 +695,7 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   fastify.get("/export/csv/tasks", { preHandler: guard }, async (request, reply) => {
-    const q = request.query as { period?: Period; dateFrom?: string; dateTo?: string; branchId?: string; employeeId?: string; status?: string };
+    const q = request.query as { period?: Period; dateFrom?: string; dateTo?: string; branchId?: string; employeeId?: string; status?: string; overdue?: string; title?: string };
     const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
     const data = await getTaskReport({
@@ -702,6 +706,8 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       ...(branchId !== undefined ? { branchId } : {}),
       ...(q.employeeId !== undefined ? { employeeId: q.employeeId } : {}),
       ...(q.status !== undefined ? { status: q.status } : {}),
+      ...(q.overdue === "true" ? { overdue: true } : {}),
+      ...(q.title !== undefined ? { title: q.title } : {}),
     });
 
     const rows = data.rows.map((r) => ({

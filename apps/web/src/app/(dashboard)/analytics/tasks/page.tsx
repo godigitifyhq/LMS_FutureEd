@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckSquare } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useTaskReport } from "@/hooks/useReports";
+import { useEmployeeList } from "@/hooks/useLeads";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
 
@@ -29,28 +31,39 @@ export default function TasksPage() {
   const [period,     setPeriod]     = useState<Period>((searchParams.get("period") as Period) ?? "last30");
   const [dateFrom,   setDateFrom]   = useState(searchParams.get("dateFrom") ?? "");
   const [dateTo,     setDateTo]     = useState(searchParams.get("dateTo") ?? "");
+  const [employeeId] = useState(searchParams.get("employeeId") ?? "");
   const [status,     setStatus]     = useState(searchParams.get("status") ?? "");
+  const [overdue]    = useState(searchParams.get("overdue") ?? "");
+  const [title,      setTitle]      = useState(searchParams.get("title") ?? "");
 
   useEffect(() => {
     const p = new URLSearchParams();
     p.set("period", period);
     if (period === "custom" && dateFrom) p.set("dateFrom", dateFrom);
     if (period === "custom" && dateTo)   p.set("dateTo",   dateTo);
+    if (employeeId) p.set("employeeId", employeeId);
     if (status) p.set("status", status);
+    if (overdue) p.set("overdue", overdue);
+    if (title) p.set("title", title);
     router.replace(`/analytics/tasks?${p.toString()}`, { scroll: false });
-  }, [period, dateFrom, dateTo, status]);
+  }, [period, dateFrom, dateTo, employeeId, status, overdue, title]);
 
   const filters = {
     period,
     ...(period === "custom" && dateFrom ? { dateFrom } : {}),
     ...(period === "custom" && dateTo   ? { dateTo }   : {}),
+    ...(employeeId ? { employeeId } : {}),
     ...(status ? { status } : {}),
+    ...(overdue ? { overdue } : {}),
+    ...(title ? { title } : {}),
   };
 
   const { data, isLoading, isError, refetch } = useTaskReport(filters);
-  const rows     = (data as any)?.data?.rows    ?? [];
-  const totals   = (data as any)?.data?.totals  ?? {};
-  const resolved = (data as any)?.data?.period  ?? null;
+  const { data: employees } = useEmployeeList();
+  const payload = data?.data;
+  const rows = payload?.rows ?? [];
+  const totals = payload?.totals ?? {};
+  const resolved = payload?.period ?? null;
 
   return (
     <ReportShell
@@ -64,10 +77,38 @@ export default function TasksPage() {
       onDateToChange={setDateTo}
       resolvedRange={resolved}
       csvExportPath="/analytics/export/csv/tasks"
-      csvExportParams={{ period, ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}), ...(status ? { status } : {}) }}
+      csvExportParams={{ period, ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}), ...(employeeId ? { employeeId } : {}), ...(status ? { status } : {}), ...(overdue ? { overdue } : {}), ...(title ? { title } : {}) }}
     >
-      {/* Status filter */}
+      {/* Filters */}
       <div className="flex flex-wrap gap-2">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Filter by title"
+          className="border border-surface-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary min-w-52"
+        />
+        <select
+          value={employeeId}
+          onChange={(e) => {
+            const p = new URLSearchParams();
+            p.set("period", period);
+            if (period === "custom" && dateFrom) p.set("dateFrom", dateFrom);
+            if (period === "custom" && dateTo) p.set("dateTo", dateTo);
+            if (e.target.value) p.set("employeeId", e.target.value);
+            if (status) p.set("status", status);
+            if (overdue) p.set("overdue", overdue);
+            if (title) p.set("title", title);
+            router.replace(`/analytics/tasks?${p.toString()}`, { scroll: false });
+          }}
+          className="border border-surface-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">All Assignees</option>
+          {employees?.map((employee) => (
+            <option key={employee.id} value={employee.id}>
+              {employee.name}
+            </option>
+          ))}
+        </select>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
@@ -87,6 +128,9 @@ export default function TasksPage() {
         <SumCard label="Completed" value={totals.completed ?? 0} color="text-green-600" />
         <SumCard label="Overdue"   value={totals.overdue   ?? 0} color={totals.overdue > 0 ? "text-red-600" : "text-gray-400"} />
       </div>
+      <p className="text-xs text-gray-400">
+        `Pending` means open tasks. `Overdue` means open tasks whose due time has passed.
+      </p>
 
       {isLoading && <TaskTableSkeleton />}
       {isError && (
@@ -115,15 +159,45 @@ export default function TasksPage() {
               </thead>
               <tbody>
                 {rows.map((r: any) => (
-                  <tr key={r.id} className="border-b border-surface-50 hover:bg-surface-50">
-                    <td className="px-4 py-2.5 font-medium text-gray-800 max-w-[200px] truncate">{r.title}</td>
+                  <tr
+                    key={r.id}
+                    className={cn("border-b border-surface-50 hover:bg-surface-50", r.leadId && "cursor-pointer")}
+                    onClick={() => {
+                      if (r.leadId) router.push(`/leads/${r.leadId}`);
+                    }}
+                  >
+                    <td className="px-4 py-2.5 font-medium text-gray-800 max-w-[200px] truncate">
+                      {r.leadId ? (
+                        <Link
+                          href={`/leads/${r.leadId}`}
+                          className="hover:text-primary hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {r.title}
+                        </Link>
+                      ) : (
+                        r.title
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{r.assigneeName}</td>
                     <td className="px-4 py-2.5">
                       <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", STATUS_COLORS[r.status] ?? "bg-gray-100 text-gray-600")}>
                         {STATUS_LABELS[r.status] ?? r.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-gray-500">{r.leadName ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-gray-500">
+                      {r.leadId ? (
+                        <Link
+                          href={`/leads/${r.leadId}`}
+                          className="hover:text-primary hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {r.leadName ?? "—"}
+                        </Link>
+                      ) : (
+                        <span>{r.leadName ?? "—"}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-gray-500 text-xs whitespace-nowrap">
                       {r.dueAt ? fmtDate(r.dueAt) : "—"}
                     </td>
