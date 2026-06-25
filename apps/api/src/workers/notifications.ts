@@ -14,6 +14,7 @@ import {
   sendLeadCreatedEmail,
   sendDailyEmployeeReport,
   sendAdminDailyReport,
+  sendLeaderboardSummaryEmail,
 } from "../services/email";
 import { config } from "../config";
 
@@ -148,6 +149,15 @@ export function startNotificationWorker(connection: Redis): Worker {
             adminName: data.adminName,
             date:      data.date,
             employees: data.employees,
+          });
+          break;
+
+        case "admin-leaderboard-summary":
+          await sendLeaderboardSummaryEmail({
+            to:          data.to,
+            adminName:   data.adminName,
+            date:        data.date,
+            leaderboard: data.leaderboard,
           });
           break;
 

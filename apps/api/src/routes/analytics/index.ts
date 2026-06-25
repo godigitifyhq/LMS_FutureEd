@@ -12,6 +12,15 @@ import {
   getConfirmedReport,
 } from "./service";
 import {
+  getLeaderboard,
+  getEmployeeDetailReport,
+  getCallReport,
+  getTaskReport,
+  getDuplicateReport,
+  getConversionReport,
+  computeEmployeeStats,
+} from "./reporting";
+import {
   generateCSV,
   generatePerformancePDF,
   generateConfirmedPDF,
@@ -382,4 +391,387 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       }
     },
   );
+
+  // ══════════════════════════════════════════════════════════════
+  // NEW REPORTING ROUTES
+  // ══════════════════════════════════════════════════════════════
+
+  const LEADERBOARD_TTL = 5 * 60;  // 5 min — near-real-time
+  const REPORT_TTL      = 15 * 60; // 15 min — historical
+
+  // ── GET /analytics/leaderboard ──
+  fastify.get("/leaderboard", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as {
+      period?: Period;
+      dateFrom?: string;
+      dateTo?: string;
+      branchId?: string;
+    };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const cacheKey = buildCacheKey("leaderboard", {
+      period: q.period, dateFrom: q.dateFrom, dateTo: q.dateTo, branchId,
+    });
+
+    const data = await getCached(fastify.redis, cacheKey, LEADERBOARD_TTL, () =>
+      getLeaderboard({
+        prisma: fastify.prisma,
+        period: q.period ?? "last30",
+        ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+        ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
+      }),
+    );
+
+    return reply.status(200).send({ success: true, data });
+  });
+
+  // ── GET /analytics/employee/:id ──
+  fastify.get("/employee/:id", { preHandler: guard }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const q = request.query as {
+      period?: Period;
+      dateFrom?: string;
+      dateTo?: string;
+      branchId?: string;
+    };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const cacheKey = buildCacheKey("employee-detail", {
+      id, period: q.period, dateFrom: q.dateFrom, dateTo: q.dateTo, branchId,
+    });
+
+    const data = await getCached(fastify.redis, cacheKey, LEADERBOARD_TTL, () =>
+      getEmployeeDetailReport({
+        prisma: fastify.prisma,
+        period: q.period ?? "last30",
+        ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+        ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
+        employeeId: id,
+      }),
+    );
+
+    if (!data) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Employee not found" },
+      });
+    }
+
+    return reply.status(200).send({ success: true, data });
+  });
+
+  // ── GET /analytics/calls ──
+  fastify.get("/calls", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as {
+      period?: Period;
+      dateFrom?: string;
+      dateTo?: string;
+      branchId?: string;
+      employeeId?: string;
+      outcome?: string;
+    };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const cacheKey = buildCacheKey("calls", {
+      period: q.period, dateFrom: q.dateFrom, dateTo: q.dateTo, branchId,
+      employeeId: q.employeeId, outcome: q.outcome,
+    });
+
+    const data = await getCached(fastify.redis, cacheKey, LEADERBOARD_TTL, () =>
+      getCallReport({
+        prisma: fastify.prisma,
+        period: q.period ?? "last30",
+        ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+        ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
+        ...(q.employeeId !== undefined ? { employeeId: q.employeeId } : {}),
+        ...(q.outcome !== undefined ? { outcome: q.outcome } : {}),
+      }),
+    );
+
+    return reply.status(200).send({ success: true, data });
+  });
+
+  // ── GET /analytics/tasks ──
+  fastify.get("/tasks", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as {
+      period?: Period;
+      dateFrom?: string;
+      dateTo?: string;
+      branchId?: string;
+      employeeId?: string;
+      status?: string;
+    };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const cacheKey = buildCacheKey("tasks", {
+      period: q.period, dateFrom: q.dateFrom, dateTo: q.dateTo, branchId,
+      employeeId: q.employeeId, status: q.status,
+    });
+
+    const data = await getCached(fastify.redis, cacheKey, REPORT_TTL, () =>
+      getTaskReport({
+        prisma: fastify.prisma,
+        period: q.period ?? "last30",
+        ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+        ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
+        ...(q.employeeId !== undefined ? { employeeId: q.employeeId } : {}),
+        ...(q.status !== undefined ? { status: q.status } : {}),
+      }),
+    );
+
+    return reply.status(200).send({ success: true, data });
+  });
+
+  // ── GET /analytics/duplicates ──
+  fastify.get("/duplicates", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as { branchId?: string };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const cacheKey = buildCacheKey("duplicates", { branchId });
+
+    const data = await getCached(fastify.redis, cacheKey, REPORT_TTL, () =>
+      getDuplicateReport({
+        prisma: fastify.prisma,
+        ...(branchId !== undefined ? { branchId } : {}),
+      }),
+    );
+
+    return reply.status(200).send({ success: true, data });
+  });
+
+  // ── GET /analytics/conversions ──
+  fastify.get("/conversions", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as {
+      period?: Period;
+      dateFrom?: string;
+      dateTo?: string;
+      branchId?: string;
+    };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const cacheKey = buildCacheKey("conversions", {
+      period: q.period, dateFrom: q.dateFrom, dateTo: q.dateTo, branchId,
+    });
+
+    const data = await getCached(fastify.redis, cacheKey, REPORT_TTL, () =>
+      getConversionReport({
+        prisma: fastify.prisma,
+        period: q.period ?? "last30",
+        ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+        ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+        ...(branchId !== undefined ? { branchId } : {}),
+      }),
+    );
+
+    return reply.status(200).send({ success: true, data });
+  });
+
+  // ── POST /analytics/duplicate/:id/mark ── (soft-link merge — Q7b)
+  fastify.post(
+    "/duplicate/:id/mark",
+    { preHandler: guard },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { originalId } = request.body as { originalId?: string };
+
+      const lead = await fastify.prisma.lead.findFirst({
+        where: {
+          id,
+          ...(request.user.role === Role.SUB_ADMIN
+            ? { branchId: request.user.branchId }
+            : {}),
+        },
+      });
+
+      if (!lead) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Lead not found" },
+        });
+      }
+
+      await fastify.prisma.lead.update({
+        where: { id },
+        data: {
+          isDuplicate: true,
+          status: "DUPLICATE",
+          ...(originalId ? { duplicateOfId: originalId } : {}),
+        },
+      });
+
+      // Invalidate duplicate report cache
+      await fastify.redis.del(buildCacheKey("duplicates", {
+        branchId: lead.branchId,
+      }));
+
+      return reply.status(200).send({ success: true });
+    },
+  );
+
+  // ══════════════════════════════════════════════════════════════
+  // NEW CSV EXPORTS — extends existing /export/csv/:type pattern
+  // ══════════════════════════════════════════════════════════════
+
+  // These are new type cases injected by extending the existing export route.
+  // They live here so the existing route can be kept as-is (we append below).
+
+  fastify.get("/export/csv/leaderboard", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as { period?: Period; dateFrom?: string; dateTo?: string; branchId?: string };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const data = await computeEmployeeStats({
+      prisma: fastify.prisma,
+      period: q.period ?? "last30",
+      ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+      ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+      ...(branchId !== undefined ? { branchId } : {}),
+    });
+
+    const rows = data.map((s, i) => ({
+      Rank: i + 1,
+      Name: s.employeeName,
+      Email: s.employeeEmail,
+      Designation: s.designation ?? "",
+      Team: s.team ?? "",
+      "Total Leads": s.totalLeads,
+      Confirmed: s.confirmedLeads,
+      Lost: s.lostLeads,
+      "Conversion %": s.confirmationRate,
+      "Total Calls": s.totalCalls,
+      "Connected Calls": s.connectedCalls,
+      "Call Minutes": s.totalCallMinutes,
+      "Leads Interacted": s.leadsInteracted,
+      "Revenue (₹)": s.totalRevenue,
+      "Overdue Follow-ups": s.overdueFollowUps,
+      "Compliance %": s.followUpComplianceRate,
+    }));
+
+    const csv = generateCSV(Object.keys(rows[0] ?? {}), rows);
+    void reply
+      .header("Content-Type", "text/csv")
+      .header("Content-Disposition", 'attachment; filename="leaderboard.csv"')
+      .send(csv);
+  });
+
+  fastify.get("/export/csv/calls", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as { period?: Period; dateFrom?: string; dateTo?: string; branchId?: string; employeeId?: string; outcome?: string };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const data = await getCallReport({
+      prisma: fastify.prisma,
+      period: q.period ?? "last30",
+      ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+      ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+      ...(branchId !== undefined ? { branchId } : {}),
+      ...(q.employeeId !== undefined ? { employeeId: q.employeeId } : {}),
+      ...(q.outcome !== undefined ? { outcome: q.outcome } : {}),
+    });
+
+    const rows = data.rows.map((r) => ({
+      Employee: r.employeeName,
+      "Lead Name": r.leadName,
+      "Lead Phone": r.leadPhone,
+      Outcome: r.outcome ?? "—",
+      Direction: r.direction ?? "—",
+      "Duration": r.durationLabel,
+      "Duration (secs)": r.durationSecs ?? 0,
+      "Recording URL": r.recordingUrl ?? "",
+      "Date & Time": new Date(r.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+    }));
+
+    const csv = generateCSV(Object.keys(rows[0] ?? {}), rows);
+    void reply
+      .header("Content-Type", "text/csv")
+      .header("Content-Disposition", 'attachment; filename="call-report.csv"')
+      .send(csv);
+  });
+
+  fastify.get("/export/csv/tasks", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as { period?: Period; dateFrom?: string; dateTo?: string; branchId?: string; employeeId?: string; status?: string };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const data = await getTaskReport({
+      prisma: fastify.prisma,
+      period: q.period ?? "last30",
+      ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+      ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+      ...(branchId !== undefined ? { branchId } : {}),
+      ...(q.employeeId !== undefined ? { employeeId: q.employeeId } : {}),
+      ...(q.status !== undefined ? { status: q.status } : {}),
+    });
+
+    const rows = data.rows.map((r) => ({
+      Title: r.title,
+      Assignee: r.assigneeName,
+      Status: r.status,
+      "Lead": r.leadName ?? "",
+      "Due At": r.dueAt ? new Date(r.dueAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "",
+      "Completed At": r.completedAt ? new Date(r.completedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "",
+      Overdue: r.isOverdue ? "Yes" : "No",
+    }));
+
+    const csv = generateCSV(Object.keys(rows[0] ?? {}), rows);
+    void reply
+      .header("Content-Type", "text/csv")
+      .header("Content-Disposition", 'attachment; filename="task-report.csv"')
+      .send(csv);
+  });
+
+  fastify.get("/export/csv/duplicates", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as { branchId?: string };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const data = await getDuplicateReport({
+      prisma: fastify.prisma,
+      ...(branchId !== undefined ? { branchId } : {}),
+    });
+
+    const rows = data.rows.map((r) => ({
+      "Duplicate Lead": r.duplicateName,
+      "Duplicate Phone": r.duplicatePhone,
+      Status: r.duplicateStatus,
+      "Original Lead": r.originalName ?? "",
+      "Original Phone": r.originalPhone ?? "",
+      "Assigned To": r.assigneeName ?? "",
+      "Created At": new Date(r.duplicateCreatedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+    }));
+
+    const csv = generateCSV(Object.keys(rows[0] ?? {}), rows);
+    void reply
+      .header("Content-Type", "text/csv")
+      .header("Content-Disposition", 'attachment; filename="duplicate-leads.csv"')
+      .send(csv);
+  });
+
+  fastify.get("/export/csv/conversions", { preHandler: guard }, async (request, reply) => {
+    const q = request.query as { period?: Period; dateFrom?: string; dateTo?: string; branchId?: string };
+    const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
+
+    const data = await getConversionReport({
+      prisma: fastify.prisma,
+      period: q.period ?? "last30",
+      ...(q.dateFrom !== undefined ? { dateFrom: q.dateFrom } : {}),
+      ...(q.dateTo !== undefined ? { dateTo: q.dateTo } : {}),
+      ...(branchId !== undefined ? { branchId } : {}),
+    });
+
+    const rows = data.rows.map((r) => ({
+      Employee: r.employeeName,
+      "Total Leads": r.totalLeads,
+      Confirmed: r.confirmedLeads,
+      "Conversion %": r.conversionRate,
+      "Revenue (₹)": r.revenue,
+      "Avg Revenue (₹)": r.avgRevenue,
+    }));
+
+    const csv = generateCSV(Object.keys(rows[0] ?? {}), rows);
+    void reply
+      .header("Content-Type", "text/csv")
+      .header("Content-Disposition", 'attachment; filename="conversion-report.csv"')
+      .send(csv);
+  });
 }

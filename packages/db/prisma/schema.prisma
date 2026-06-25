@@ -61,6 +61,21 @@ enum InteractionType {
   STATUS_CHANGED
 }
 
+enum CallOutcome {
+  CONNECTED
+  NO_ANSWER
+  BUSY
+  REJECTED
+  WRONG_NUMBER
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 // ─────────────────────────────────────────
 // BRANCH
 // Physical office location.
@@ -78,6 +93,7 @@ model Branch {
 
   users User[]
   leads Lead[]
+  tasks Task[]
 }
 
 // ─────────────────────────────────────────
@@ -98,6 +114,11 @@ model User {
   branchId String
   branch   Branch @relation(fields: [branchId], references: [id])
 
+  // Reporting / leaderboard metadata
+  designation  String?   // free-text job title, e.g. "Senior Counsellor"
+  team         String?   // optional grouping label within a branch, e.g. "MBBS Team"
+  lastActiveAt DateTime? // updated on every authenticated request; drives online/offline badge
+
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
 
@@ -111,11 +132,14 @@ model User {
   interactionEdits InteractionLogEdit[]
   assignmentsMade  AssignmentHistory[] @relation("AssignedBy")
   auditLogs        AuditLog[]
+  tasksAssigned    Task[]              @relation("TaskAssignedTo")
+  tasksCreated     Task[]              @relation("TaskCreatedBy")
 
   @@index([email])
   @@index([branchId])
   @@index([role])
   @@index([isActive])
+  @@index([lastActiveAt])
 }
 
 // ─────────────────────────────────────────
@@ -235,6 +259,7 @@ model Lead {
   assignments          AssignmentHistory[]
   auditLogs            AuditLog[]
   confirmedApplication ConfirmedApplication?
+  tasks                Task[]
 
   // ── WhatsApp Cloud API fields ──
   waContactId    String?  // WhatsApp wa_id — used for idempotency check
@@ -306,7 +331,8 @@ model InteractionLog {
   // Future: calls happen from LMS (Exotel/Twilio)
   callRecordingUrl String?
   callDurationSecs Int?
-  callDirection    String? // INBOUND | OUTBOUND — for future LMS calling
+  callDirection    String?      // INBOUND | OUTBOUND — for future LMS calling
+  callOutcome      CallOutcome? // set by employee when logging a CALL interaction
 
   // Stage context — what status was lead in during this interaction
   statusBefore LeadStatus?
@@ -576,6 +602,46 @@ model LeadDocument {
 
   @@index([confirmedApplicationId])
   @@index([documentTypeId])
+}
+
+// ─────────────────────────────────────────
+// TASK
+// Standalone work item — NOT tied 1:1 to a single lead's follow-up date.
+// Enables cross-lead tasks like "Send brochure to all B.Ed leads".
+// Optional leadId links the task to a specific lead for context.
+// ─────────────────────────────────────────
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(PENDING)
+
+  assignedToId String
+  assignedTo   User   @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+
+  createdById String
+  createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id])
+
+  // Optional — links task to a specific lead for context
+  leadId String?
+  lead   Lead?  @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  dueAt       DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([branchId])
+  @@index([status])
+  @@index([dueAt])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────────────────

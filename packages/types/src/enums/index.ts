@@ -47,6 +47,21 @@ export enum Role {
     DOCUMENT_UPLOADED = 'DOCUMENT_UPLOADED',
     STATUS_CHANGED = 'STATUS_CHANGED',
   }
+
+  export enum CallOutcome {
+    CONNECTED    = 'CONNECTED',
+    NO_ANSWER    = 'NO_ANSWER',
+    BUSY         = 'BUSY',
+    REJECTED     = 'REJECTED',
+    WRONG_NUMBER = 'WRONG_NUMBER',
+  }
+
+  export enum TaskStatus {
+    PENDING     = 'PENDING',
+    IN_PROGRESS = 'IN_PROGRESS',
+    COMPLETED   = 'COMPLETED',
+    CANCELLED   = 'CANCELLED',
+  }
   
   // Lead status transition map
   // Defines which statuses a lead can move TO from each current status

@@ -45,6 +45,17 @@ export async function authenticate(
       });
       return;
     }
+
+    // Stamp lastActiveAt — fire-and-forget, never block the request.
+    // Throttled to once per minute via Redis to avoid a DB write on every API call.
+    const throttleKey = `lastActive:${userId}`;
+    const alreadyStamped = await request.server.redis.get(throttleKey);
+    if (!alreadyStamped) {
+      void request.server.prisma.user
+        .update({ where: { id: userId }, data: { lastActiveAt: new Date() } })
+        .catch(() => undefined); // never fail the request on DB error
+      await request.server.redis.setex(throttleKey, 60, "1");
+    }
   } catch {
     await reply.status(401).send({
       success: false,

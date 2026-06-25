@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { QUEUES } from "../plugins/bullmq";
+import { getLeaderboardSummaryForEmail } from "../routes/analytics/reporting";
 
 // Default: 6:30 PM IST = 13:00 UTC
 const DEFAULT_HOUR_UTC   = parseInt(process.env["DAILY_REPORT_HOUR_UTC"]   ?? "13", 10);
@@ -104,7 +105,26 @@ export function startDailyReportCron(fastify: FastifyInstance): void {
         );
       }
 
-      fastify.log.info(`Daily report cron: queued ${employeeStats.length} employee + ${admins.length} admin reports`);
+      // Leaderboard summary — appended to admin daily reports
+      try {
+        const leaderboard = await getLeaderboardSummaryForEmail({ prisma: fastify.prisma });
+        for (const admin of admins) {
+          await fastify.queues[QUEUES.NOTIFICATIONS].add(
+            "admin-leaderboard-summary",
+            {
+              to:          admin.email,
+              adminName:   admin.name,
+              date:        dateLabel,
+              leaderboard: leaderboard.rows.slice(0, 10), // top 10
+            },
+            { jobId: `leaderboard-${admin.email}-${todayStart.toISOString().slice(0, 10)}`, attempts: 2 },
+          );
+        }
+      } catch (err) {
+        fastify.log.warn({ err }, "Leaderboard summary generation failed — skipping email");
+      }
+
+      fastify.log.info(`Daily report cron: queued ${employeeStats.length} employee + ${admins.length} admin reports + leaderboard`);
     } catch (error) {
       fastify.log.error({ error }, "Daily report cron failed");
     }

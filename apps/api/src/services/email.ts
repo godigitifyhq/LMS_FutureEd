@@ -617,3 +617,63 @@ export async function sendAdminDailyReport(params: {
     `),
   });
 }
+
+export async function sendLeaderboardSummaryEmail(params: {
+  to: string;
+  adminName: string;
+  date: string;
+  leaderboard: Array<{
+    rank: number;
+    employeeName: string;
+    confirmedLeads: number;
+    totalLeads: number;
+    confirmationRate: number;
+    totalCalls: number;
+    totalRevenue: number;
+  }>;
+}): Promise<void> {
+  const medalOf = (rank: number) => rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
+  const rows = params.leaderboard
+    .map(
+      (r) => `
+        <tr>
+          <td style="padding:8px 12px;font-weight:600;">${medalOf(r.rank)}</td>
+          <td style="padding:8px 12px;">${esc(r.employeeName)}</td>
+          <td style="padding:8px 12px;text-align:center;color:#16a34a;font-weight:600;">${r.confirmedLeads}</td>
+          <td style="padding:8px 12px;text-align:center;">${r.totalLeads}</td>
+          <td style="padding:8px 12px;text-align:center;">${r.confirmationRate}%</td>
+          <td style="padding:8px 12px;text-align:center;">${r.totalCalls}</td>
+          <td style="padding:8px 12px;text-align:right;">₹${r.totalRevenue.toLocaleString("en-IN")}</td>
+        </tr>`,
+    )
+    .join("");
+
+  await send({
+    to:      params.to,
+    subject: `Today's Leaderboard — ${params.date}`,
+    html: htmlWrapper(`
+      <div class="title">Daily Leaderboard</div>
+      <div class="body">Hi <strong>${esc(params.adminName)}</strong>, here is today's employee leaderboard for <strong>${esc(params.date)}</strong> (top ${params.leaderboard.length}).</div>
+
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+        <thead>
+          <tr style="background:#f3f4f6;">
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:#6b7280;">Rank</th>
+            <th style="padding:8px 12px;text-align:left;font-size:12px;color:#6b7280;">Employee</th>
+            <th style="padding:8px 12px;text-align:center;font-size:12px;color:#6b7280;">Confirmed</th>
+            <th style="padding:8px 12px;text-align:center;font-size:12px;color:#6b7280;">Total Leads</th>
+            <th style="padding:8px 12px;text-align:center;font-size:12px;color:#6b7280;">Conv %</th>
+            <th style="padding:8px 12px;text-align:center;font-size:12px;color:#6b7280;">Calls</th>
+            <th style="padding:8px 12px;text-align:right;font-size:12px;color:#6b7280;">Revenue</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <a href="${esc(config.frontendUrl)}/analytics/leaderboard" class="btn" style="color:#ffffff;text-decoration:none;">
+        View Full Leaderboard
+      </a>
+    `),
+  });
+}
+
