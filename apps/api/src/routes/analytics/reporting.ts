@@ -61,6 +61,7 @@ export type EmployeeStats = {
   team: string | null;
   isOnline: boolean; // lastActiveAt within last 5 minutes
   lastActiveAt: Date | null;
+  firstCallAt: Date | null;
   lastCallAt: Date | null;
   lastConnectedCallAt: Date | null;
 
@@ -234,6 +235,11 @@ export async function computeEmployeeStats(params: {
     const totalCallMinutes = Math.round(
       empCalls.reduce((s, c) => s + (c.callDurationSecs ?? 0), 0) / 60,
     );
+    const firstCallAt = empCalls.reduce<Date | null>(
+      (earliest, call) =>
+        !earliest || call.createdAt < earliest ? call.createdAt : earliest,
+      null,
+    );
     const lastCallAt = empCalls.reduce<Date | null>(
       (latest, call) =>
         !latest || call.createdAt > latest ? call.createdAt : latest,
@@ -283,6 +289,7 @@ export async function computeEmployeeStats(params: {
       team: emp.team,
       isOnline: emp.lastActiveAt ? emp.lastActiveAt >= onlineThreshold : false,
       lastActiveAt: emp.lastActiveAt,
+      firstCallAt,
       lastCallAt,
       lastConnectedCallAt,
       totalLeads,

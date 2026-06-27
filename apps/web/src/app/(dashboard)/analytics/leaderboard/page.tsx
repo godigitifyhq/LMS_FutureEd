@@ -123,7 +123,7 @@ export default function LeaderboardPage() {
             <table className="w-full text-sm min-w-225">
               <thead>
                 <tr className="bg-surface-50 border-b border-surface-200">
-                  {["Rank", "Employee", "Status", "Leads", "Confirmed", "Conv %", "Calls", "Talk Time", "Last Call", "Last Pickup", "Revenue", "Overdue", ""].map((h) => (
+                  {["Rank", "Employee", "Status", "Leads", "Confirmed", "Conv %", "Calls", "Talk Time", "Starting Call", "Last Call", "Revenue", "Overdue", ""].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -182,10 +182,10 @@ export default function LeaderboardPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
-                      {fmtReportDateTime(row.lastCallAt)}
+                      {fmtReportDateTime(row.firstCallAt)}
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
-                      {fmtReportDateTime(row.lastConnectedCallAt)}
+                      {fmtReportDateTime(row.lastCallAt)}
                     </td>
                     <td className="px-4 py-3 font-medium text-gray-800">{formatCurrency(row.totalRevenue)}</td>
                     <td className="px-4 py-3">
@@ -279,10 +279,10 @@ function LeaderboardCard({ row, detailQuery }: { row: LeaderboardRow; detailQuer
           Talk time: <span className="font-medium text-gray-700">{row.totalCallMinutes}m</span>
         </p>
         <p className="text-[11px] text-gray-500">
-          Last call: <span className="font-medium text-gray-700">{fmtReportDateTime(row.lastCallAt)}</span>
+          Starting call: <span className="font-medium text-gray-700">{fmtReportDateTime(row.firstCallAt)}</span>
         </p>
         <p className="text-[11px] text-gray-500">
-          Last pickup: <span className="font-medium text-gray-700">{fmtReportDateTime(row.lastConnectedCallAt)}</span>
+          Last call: <span className="font-medium text-gray-700">{fmtReportDateTime(row.lastCallAt)}</span>
         </p>
       </div>
     </Link>

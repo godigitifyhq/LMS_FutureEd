@@ -14,6 +14,7 @@ const OPTIONS: Array<{ value: Period; label: string }> = [
   { value: "week", label: "7 days" },
   { value: "last30", label: "30 days" },
   { value: "last90", label: "90 days" },
+  { value: "custom", label: "Custom" },
 ];
 
 export function PeriodSelector({ value, onChange, compact }: Props) {
@@ -30,7 +31,7 @@ export function PeriodSelector({ value, onChange, compact }: Props) {
               : "text-gray-500 hover:text-gray-700",
           )}
         >
-          {compact ? opt.label.replace(" days", "d") : opt.label}
+          {compact ? opt.label.replace(/(\d+) days/, "$1d") : opt.label}
         </button>
       ))}
     </div>
