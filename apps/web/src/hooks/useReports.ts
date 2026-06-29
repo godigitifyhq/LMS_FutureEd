@@ -54,6 +54,7 @@ export type EmployeeDetailStats = {
   designation: string | null;
   team: string | null;
   isOnline: boolean;
+  firstCallAt: string | null;
   lastCallAt: string | null;
   lastConnectedCallAt: string | null;
   totalLeads: number;
