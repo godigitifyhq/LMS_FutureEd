@@ -19,6 +19,7 @@ type EmployeeStats = {
   designation: string | null;
   team: string | null;
   isOnline: boolean;
+  firstCallAt: string | null;
   lastCallAt: string | null;
   lastConnectedCallAt: string | null;
   totalLeads: number;
@@ -137,8 +138,8 @@ export default function EmployeeDetailPage() {
             <KpiCard icon={Phone} label="Total Calls" value={stats.totalCalls} color="text-blue-600" href={callsBase} />
             <KpiCard icon={Phone} label="Connected" value={stats.connectedCalls} color="text-green-600" href={`${callsBase}&outcome=CONNECTED`} />
             <KpiCard icon={Clock} label="Call Mins" value={`${stats.totalCallMinutes}m`} color="text-orange-500" href={callsBase} />
-            <KpiCard icon={Clock} label="Last Call" value={fmtReportDateTime(stats.lastCallAt)} color="text-slate-600" href={callsBase} />
-            <KpiCard icon={Phone} label="Last Pickup" value={fmtReportDateTime(stats.lastConnectedCallAt)} color="text-emerald-600" href={`${callsBase}&outcome=CONNECTED`} />
+            <KpiCard icon={Clock} label="Starting Call" value={fmtReportDateTime(stats.firstCallAt)} color="text-slate-600" href={callsBase} />
+            <KpiCard icon={Clock} label="Last Call" value={fmtReportDateTime(stats.lastCallAt)} color="text-emerald-600" href={callsBase} />
             <KpiCard icon={TrendingUp} label="Revenue" value={formatCurrency(stats.totalRevenue)} color="text-violet-600" href={`${leadsBase}&status=CONFIRMED`} />
             <KpiCard icon={AlertCircle} label="Overdue" value={stats.overdueFollowUps} color={stats.overdueFollowUps > 0 ? "text-red-500" : "text-gray-400"} href={`${leadsBase}&overdue=true`} />
             <KpiCard icon={Users} label="Interacted" value={stats.leadsInteracted} color="text-indigo-600" href={`${leadsBase}&interactedByUserId=${id}`} />

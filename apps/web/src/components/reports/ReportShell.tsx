@@ -69,7 +69,7 @@ export function ReportShell({
   return (
     <div className="space-y-5">
       {/* Header row */}
-      <div className="flex flex-wrap items-start gap-3 justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
           {description && (

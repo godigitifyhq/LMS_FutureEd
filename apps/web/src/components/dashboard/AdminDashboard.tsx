@@ -34,7 +34,9 @@ type DashboardSummary = {
 
 export function AdminDashboard() {
   const [period, setPeriod] = useState<Period>("last30");
-  const { data, isLoading } = useDashboardOverview(period);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const { data, isLoading } = useDashboardOverview(period, undefined, dateFrom, dateTo);
   const { data: unassignedData, isLoading: unassignedLoading } =
     useUnassignedLeads();
   // data may be typed as an empty object by the hook; narrow it to a local shape for summary access
@@ -45,7 +47,33 @@ export function AdminDashboard() {
       {/* Period selector for stat cards */}
       <div className="flex items-center justify-between">
         <div />
-        <PeriodSelector value={period} onChange={setPeriod} />
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodSelector value={period} onChange={setPeriod} />
+          {period === "custom" && (
+            <div className="flex items-center gap-1.5">
+              <div className="flex flex-col">
+                <label className="text-[10px] text-gray-400 mb-0.5">From</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  title="From date"
+                  className="border border-surface-200 rounded px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-[10px] text-gray-400 mb-0.5">To</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  title="To date"
+                  className="border border-surface-200 rounded px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stat cards */}

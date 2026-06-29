@@ -5,33 +5,43 @@ export type Period = "today" | "week" | "last30" | "last90" | "custom";
 type ApiResponse<T = unknown> = { success: true; data: T };
 
 // ── Dashboard overview ──
-export function useDashboardOverview(period: Period, branchId?: string) {
+export function useDashboardOverview(
+  period: Period,
+  branchId?: string,
+  dateFrom?: string,
+  dateTo?: string,
+) {
   return useQuery({
-    queryKey: ["analytics", "dashboard", period, branchId],
+    queryKey: ["analytics", "dashboard", period, branchId, dateFrom, dateTo],
     queryFn: async () => {
       const params = new URLSearchParams({ period });
       if (branchId) params.set("branchId", branchId);
+      if (period === "custom" && dateFrom) params.set("dateFrom", dateFrom);
+      if (period === "custom" && dateTo) params.set("dateTo", dateTo);
       const { data } = await api.get<ApiResponse>(
         `/analytics/dashboard?${params}`,
       );
       return data.data;
     },
+    enabled: period !== "custom" || (!!dateFrom && !!dateTo),
     refetchInterval: 5 * 60_000, // 5 min
     staleTime: 3 * 60_000,
   });
 }
 
 // ── Employee performance ──
-export function useEmployeePerformance(period: Period) {
+export function useEmployeePerformance(period: Period, dateFrom?: string, dateTo?: string) {
   return useQuery({
-    queryKey: ["analytics", "employees", period],
+    queryKey: ["analytics", "employees", period, dateFrom, dateTo],
     queryFn: async () => {
-      const { data } = await api.get<ApiResponse>(
-        `/analytics/employees?period=${period}`,
-      );
+      const params = new URLSearchParams({ period });
+      if (period === "custom" && dateFrom) params.set("dateFrom", dateFrom);
+      if (period === "custom" && dateTo) params.set("dateTo", dateTo);
+      const { data } = await api.get<ApiResponse>(`/analytics/employees?${params}`);
       return data.data;
     },
-    staleTime: 60_000, // 1 min — keeps data fresh across period switches
+    enabled: period !== "custom" || (!!dateFrom && !!dateTo),
+    staleTime: 60_000,
   });
 }
 
@@ -51,15 +61,17 @@ export function usePipeline(branchId?: string) {
 }
 
 // ── Lead sources ──
-export function useSourceReport(period: Period) {
+export function useSourceReport(period: Period, dateFrom?: string, dateTo?: string) {
   return useQuery({
-    queryKey: ["analytics", "sources", period],
+    queryKey: ["analytics", "sources", period, dateFrom, dateTo],
     queryFn: async () => {
-      const { data } = await api.get<ApiResponse>(
-        `/analytics/sources?period=${period}`,
-      );
+      const params = new URLSearchParams({ period });
+      if (period === "custom" && dateFrom) params.set("dateFrom", dateFrom);
+      if (period === "custom" && dateTo) params.set("dateTo", dateTo);
+      const { data } = await api.get<ApiResponse>(`/analytics/sources?${params}`);
       return data.data;
     },
+    enabled: period !== "custom" || (!!dateFrom && !!dateTo),
     staleTime: 5 * 60_000,
   });
 }
@@ -78,15 +90,17 @@ export function useFollowUpCompliance(enabled = true) {
 }
 
 // ── Trend data ──
-export function useTrend(period: Period) {
+export function useTrend(period: Period, dateFrom?: string, dateTo?: string) {
   return useQuery({
-    queryKey: ["analytics", "trend", period],
+    queryKey: ["analytics", "trend", period, dateFrom, dateTo],
     queryFn: async () => {
-      const { data } = await api.get<ApiResponse>(
-        `/analytics/trend?period=${period}`,
-      );
+      const params = new URLSearchParams({ period });
+      if (period === "custom" && dateFrom) params.set("dateFrom", dateFrom);
+      if (period === "custom" && dateTo) params.set("dateTo", dateTo);
+      const { data } = await api.get<ApiResponse>(`/analytics/trend?${params}`);
       return data.data;
     },
+    enabled: period !== "custom" || (!!dateFrom && !!dateTo),
     staleTime: 5 * 60_000,
   });
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useTrend } from "@/hooks/useDashboard";
 import { PeriodSelector } from "./PeriodSelector";
+import { CustomDateRange } from "./CustomDateRange";
 import type { Period } from "@/hooks/useDashboard";
 import dayjs from "dayjs";
 
@@ -11,7 +12,9 @@ const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 export function TrendChart() {
   const [period, setPeriod] = useState<Period>("last30");
-  const { data, isLoading } = useTrend(period);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const { data, isLoading } = useTrend(period, dateFrom, dateTo);
 
   type TrendPoint = { date: string; created: number; confirmed: number };
   const trend: TrendPoint[] =
@@ -65,11 +68,16 @@ export function TrendChart() {
 
   return (
     <div className="bg-white border border-surface-200 rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h3 className="text-sm font-semibold text-gray-800">
           Leads & Confirmations
         </h3>
-        <PeriodSelector value={period} onChange={setPeriod} compact />
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodSelector value={period} onChange={setPeriod} compact />
+          {period === "custom" && (
+            <CustomDateRange dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+          )}
+        </div>
       </div>
 
       {isLoading ? (

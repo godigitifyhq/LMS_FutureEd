@@ -282,11 +282,21 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get("/trend", { preHandler: guard }, async (request, reply) => {
     const q = request.query as {
       period?: string;
+      dateFrom?: string;
+      dateTo?: string;
       branchId?: string;
     };
 
-    const days = q.period === "last90" ? 90 : q.period === "last30" ? 30 : 7;
-    const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    let from: Date;
+    let to: Date;
+    if (q.period === "custom" && q.dateFrom && q.dateTo) {
+      from = new Date(q.dateFrom);
+      to = new Date(q.dateTo + "T23:59:59Z");
+    } else {
+      const days = q.period === "last90" ? 90 : q.period === "last30" ? 30 : q.period === "today" ? 1 : 7;
+      to = new Date();
+      from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    }
     const branchId = effectiveBranchId(request.user.role, request.user.branchId, q.branchId);
 
     type TrendRow = { day: Date; cnt: bigint };
@@ -299,7 +309,7 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
       fastify.prisma.$queryRaw<TrendRow[]>(Prisma.sql`
         SELECT DATE("createdAt" AT TIME ZONE 'UTC') AS day, COUNT(*)::bigint AS cnt
         FROM "Lead"
-        WHERE "createdAt" >= ${from}
+        WHERE "createdAt" >= ${from} AND "createdAt" <= ${to}
         ${branchClause}
         GROUP BY day
         ORDER BY day
@@ -308,19 +318,23 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
         SELECT DATE("confirmedAt" AT TIME ZONE 'UTC') AS day, COUNT(*)::bigint AS cnt
         FROM "Lead"
         WHERE status = 'CONFIRMED'
-          AND "confirmedAt" >= ${from}
+          AND "confirmedAt" >= ${from} AND "confirmedAt" <= ${to}
         ${branchClause}
         GROUP BY day
         ORDER BY day
       `),
     ]);
 
-    // Build date scaffold
+    // Build date scaffold from `from` to `to`
     const dateMap: Record<string, { created: number; confirmed: number }> = {};
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-      const key = d.toISOString().split("T")[0]!;
+    const cursor = new Date(from);
+    cursor.setUTCHours(0, 0, 0, 0);
+    const end = new Date(to);
+    end.setUTCHours(0, 0, 0, 0);
+    while (cursor <= end) {
+      const key = cursor.toISOString().split("T")[0]!;
       dateMap[key] = { created: 0, confirmed: 0 };
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
 
     for (const row of created) {

@@ -232,7 +232,7 @@ export default function EmployeesPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Employees</h1>
           <p className="text-sm text-gray-500 mt-0.5">

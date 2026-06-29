@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useSourceReport } from "@/hooks/useDashboard";
 import { PeriodSelector } from "./PeriodSelector";
+import { CustomDateRange } from "./CustomDateRange";
 import type { Period } from "@/hooks/useDashboard";
 
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -23,7 +24,9 @@ const CHART_COLORS = [
 
 export function LeadSourcesChart() {
   const [period, setPeriod] = useState<Period>("last30");
-  const { data, isLoading } = useSourceReport(period);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const { data, isLoading } = useSourceReport(period, dateFrom, dateTo);
 
   type SourceItem = {
     total: number;
@@ -82,9 +85,14 @@ export function LeadSourcesChart() {
 
   return (
     <div className="bg-white border border-surface-200 rounded-xl p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h3 className="text-sm font-semibold text-gray-800">Lead Sources</h3>
-        <PeriodSelector value={period} onChange={setPeriod} compact />
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodSelector value={period} onChange={setPeriod} compact />
+          {period === "custom" && (
+            <CustomDateRange dateFrom={dateFrom} dateTo={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+          )}
+        </div>
       </div>
 
       {isLoading || sources.length === 0 ? (

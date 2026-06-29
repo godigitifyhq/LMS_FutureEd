@@ -63,17 +63,18 @@ export default function ConfirmedLeadsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Admission</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Confirmed leads ready for admission processing
+            Confirmed Admissions:{" "}
             {data && (
-              <> · <span className="text-2xl font-extrabold text-gray-900">{data.total}</span> <span className="font-semibold text-gray-700">total</span></>
-            )}
+              <span className="text-2xl font-extrabold text-gray-900">{data.total}</span>
+            )}{" "}
+            <span className="font-semibold text-gray-700">Total</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/direct-admissions"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-medium hover:bg-emerald-100 transition-colors"
