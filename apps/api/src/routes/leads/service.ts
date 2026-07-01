@@ -2,11 +2,12 @@ import type { PrismaClient } from '@lms/db'
 import type { LeadStatus, Role } from '@lms/types'
 
 function toDateRangeStart(value: string): Date {
-  return new Date(`${value}T00:00:00.000Z`)
+  // Treat YYYY-MM-DD as IST midnight so date boundaries match the analytics service
+  return new Date(`${value}T00:00:00.000+05:30`);
 }
 
 function toDateRangeEnd(value: string): Date {
-  return new Date(`${value}T23:59:59.999Z`)
+  return new Date(`${value}T23:59:59.999+05:30`);
 }
 
 // ── Shared lead select — what we return on every lead ──
@@ -96,6 +97,15 @@ export function buildLeadWhereClause(params: {
     dateFrom?: string
     dateTo?: string
     overdue?: boolean
+    upcoming?: boolean          // leads with nextFollowUpAt in the next 7 days
+    showAllStatuses?: boolean   // bypass ALL status exclusion (Total Leads card)
+    excludeTerminal?: boolean   // exclude only CONFIRMED/DUPLICATE/LOST — matches dashboard active count
+    // Explicit opt-in for "confirmed during this window" (Admissions page /
+    // dashboard's Confirmed Today). Without it, dateFrom/dateTo always means
+    // "created during this window" — matching the cohort-style confirmedLeads
+    // metric used by the leaderboard/employee-detail reports, whose drill-throughs
+    // must filter the same way to reconcile with the number they display.
+    dateBy?: 'createdAt' | 'confirmedAt'
   }
 }) {
   const { userId, userRole, filters } = params
@@ -114,19 +124,27 @@ export function buildLeadWhereClause(params: {
   }
 
   // ── Status filter ──
-  // When search is active: ignore status — results come from the full DB.
-  // When no search and no explicit status: hide CONFIRMED/INTERESTED (they
-  // have their own dedicated tabs).
-  if (filters.search) {
-    // global search — no status restriction
-  } else if (filters.statuses && filters.statuses.length > 0) {
+  // An explicit status/statuses selection always wins — showAllStatuses only
+  // exists to relax the *default* exclusion (e.g. "Total Leads" drill-through)
+  // and must not silently override a status the user actually picked.
+  if (filters.statuses && filters.statuses.length > 0) {
     andClauses.push({ status: { in: filters.statuses } })
   } else if (filters.status) {
     andClauses.push({ status: filters.status })
-  } else if (filters.assignedToId && filters.assignedToId !== 'unassigned') {
-    // When drilling into a specific employee's leads (e.g. from admin dashboard), show all statuses
-    // so the count matches what the analytics panel shows.
+  } else if (filters.showAllStatuses) {
+    // All statuses — used by "Total Leads" drill-through
+  } else if (filters.search) {
+    // Full-text search — no status restriction
+  } else if (filters.overdue || filters.upcoming) {
+    // overdue/upcoming have their own status constraints added below; don't also add default
+  } else if (filters.assignedToId) {
+    // Unassigned (?assignedToId=unassigned) or specific employee — match dashboard exclusion set
+    andClauses.push({ status: { notIn: ['CONFIRMED', 'DUPLICATE', 'LOST'] } })
+  } else if (filters.excludeTerminal) {
+    // Active Leads card: exclude only truly closed statuses — keep INTERESTED visible
+    andClauses.push({ status: { notIn: ['CONFIRMED', 'DUPLICATE', 'LOST'] } })
   } else {
+    // Default leads list — hide statuses that have dedicated tabs (Admissions, Interested)
     andClauses.push({ status: { notIn: ['CONFIRMED', 'INTERESTED'] } })
   }
 
@@ -142,6 +160,12 @@ export function buildLeadWhereClause(params: {
     andClauses.push({ nextFollowUpAt: { lte: new Date() } })
     andClauses.push({ status: { notIn: ['CONFIRMED', 'DUPLICATE', 'LOST'] } })
   }
+  if (filters.upcoming) {
+    const now = new Date();
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    andClauses.push({ nextFollowUpAt: { gt: now, lte: in7Days } })
+    andClauses.push({ status: { notIn: ['CONFIRMED', 'DUPLICATE', 'LOST'] } })
+  }
 
   if (filters.courseId) {
     andClauses.push({ courses: { some: { courseId: filters.courseId } } })
@@ -154,11 +178,27 @@ export function buildLeadWhereClause(params: {
     })
   }
   if (filters.interactedByUserId) {
+    // The date range means "interacted in this window" here, not "lead
+    // created in this window" — matches how the Employee Performance card's
+    // leadsInteracted count is computed (by interaction date, not lead date).
     andClauses.push({
-      interactions: { some: { userId: filters.interactedByUserId, isDeleted: false, type: { not: 'STATUS_CHANGED' } } }
+      interactions: {
+        some: {
+          userId: filters.interactedByUserId,
+          isDeleted: false,
+          type: { not: 'STATUS_CHANGED' },
+          ...(filters.dateFrom || filters.dateTo
+            ? {
+                createdAt: {
+                  ...(filters.dateFrom ? { gte: toDateRangeStart(filters.dateFrom) } : {}),
+                  ...(filters.dateTo   ? { lte: toDateRangeEnd(filters.dateTo)   } : {}),
+                },
+              }
+            : {}),
+        },
+      },
     })
   }
-
   // ── Full-DB search (name, phone, email, father name, location) ──
   if (filters.search) {
     andClauses.push({
@@ -176,8 +216,18 @@ export function buildLeadWhereClause(params: {
   }
 
   if (filters.dateFrom ?? filters.dateTo) {
+    // Defaults to createdAt (cohort semantics — "leads created in this
+    // window", matching computeEmployeeStats' confirmedLeads/leadsInteracted
+    // used by the leaderboard/employee-detail reports). Only the Admissions
+    // page and the dashboard's Confirmed Today card explicitly opt into
+    // confirmedAt via dateBy, since for them the window means "confirmed in
+    // this window". When interactedByUserId is also set, this AND's with its
+    // own interaction-level date filter above — both the lead's creation and
+    // the interaction itself must fall in the window, matching leadsInteracted's
+    // "leads created in this period, currently assigned to them, that they interacted with".
+    const dateField = filters.dateBy === 'confirmedAt' ? 'confirmedAt' : 'createdAt'
     andClauses.push({
-      createdAt: {
+      [dateField]: {
         ...(filters.dateFrom ? { gte: toDateRangeStart(filters.dateFrom) } : {}),
         ...(filters.dateTo   ? { lte: toDateRangeEnd(filters.dateTo)   } : {}),
       },

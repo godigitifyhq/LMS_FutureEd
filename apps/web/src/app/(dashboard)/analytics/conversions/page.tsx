@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { TrendingUp } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useConversionReport } from "@/hooks/useReports";
+import { useStaffList } from "@/hooks/useLeads";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
@@ -16,10 +17,11 @@ export default function ConversionsPage() {
   const searchParams = useSearchParams();
   const router       = useRouter();
 
-  const [period,  setPeriod]  = useState<Period>((searchParams.get("period") as Period) ?? "last30");
-  const [dateFrom, setDateFrom] = useState(searchParams.get("dateFrom") ?? "");
-  const [dateTo,   setDateTo]   = useState(searchParams.get("dateTo") ?? "");
-  const [mounted,  setMounted]  = useState(false);
+  const [period,     setPeriod]     = useState<Period>((searchParams.get("period") as Period) ?? "last30");
+  const [dateFrom,   setDateFrom]   = useState(searchParams.get("dateFrom") ?? "");
+  const [dateTo,     setDateTo]     = useState(searchParams.get("dateTo") ?? "");
+  const [employeeId, setEmployeeId] = useState("");
+  const [mounted,    setMounted]    = useState(false);
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
@@ -37,9 +39,25 @@ export default function ConversionsPage() {
   };
 
   const { data, isLoading, isError, refetch } = useConversionReport(filters);
-  const report   = (data as any)?.data;
-  const rows     = report?.rows        ?? [];
-  const totals   = report?.totals      ?? {};
+  const { data: staffData } = useStaffList();
+  const report    = (data as any)?.data;
+  const allRows   = report?.rows        ?? [];
+  const rows      = employeeId ? allRows.filter((r: any) => r.employeeId === employeeId) : allRows;
+
+  // When filtered, recompute totals from visible rows; otherwise use API totals
+  const totals = employeeId && rows.length > 0
+    ? (() => {
+        const tLeads = rows.reduce((s: number, r: any) => s + (r.totalLeads ?? 0), 0);
+        const tConf  = rows.reduce((s: number, r: any) => s + (r.confirmedLeads ?? 0), 0);
+        const tRev   = rows.reduce((s: number, r: any) => s + (r.revenue ?? 0), 0);
+        return {
+          totalLeads:            tLeads,
+          confirmedLeads:        tConf,
+          overallConversionRate: tLeads > 0 ? Math.round((tConf / tLeads) * 100 * 10) / 10 : 0,
+          totalRevenue:          tRev,
+        };
+      })()
+    : (report?.totals ?? {});
   const trend    = report?.dailyTrend  ?? [];
   const sources  = report?.sourceBreakdown ?? [];
   const resolved = report?.period     ?? null;
@@ -60,6 +78,21 @@ export default function ConversionsPage() {
       csvExportPath="/analytics/export/csv/conversions"
       csvExportParams={{ period, ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}) }}
     >
+      {/* Employee filter */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <select
+          aria-label="Filter by employee"
+          value={employeeId}
+          onChange={(e) => setEmployeeId(e.target.value)}
+          className="border border-surface-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">All Employees</option>
+          {staffData?.map((emp) => (
+            <option key={emp.id} value={emp.id}>{emp.name}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <SumCard label="Total Leads"     value={totals.totalLeads ?? 0}              color="text-gray-700" />

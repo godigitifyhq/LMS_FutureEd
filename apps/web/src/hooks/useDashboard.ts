@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 
-export type Period = "today" | "week" | "last30" | "last90" | "custom";
+export type Period = "today" | "yesterday" | "week" | "last30" | "last90" | "custom";
 type ApiResponse<T = unknown> = { success: true; data: T };
 
 // ── Dashboard overview ──

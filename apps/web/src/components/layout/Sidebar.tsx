@@ -59,7 +59,7 @@ const NAV_ITEMS: NavItem[] = [
     roles: [Role.ADMIN, Role.SUB_ADMIN],
   },
   {
-    label: "Analytics",
+    label: "Reports",
     href: "/analytics",
     icon: BarChart3,
     roles: [Role.ADMIN, Role.SUB_ADMIN],

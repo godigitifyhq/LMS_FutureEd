@@ -24,28 +24,12 @@ import type { Period } from "./helpers";
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
 /** Returns { from, to } in UTC corresponding to the period boundaries in IST. */
+// getDateRange in helpers.ts is now fully IST-aligned for all periods.
 function getDateRangeIST(
   period: Period,
   dateFrom?: string,
   dateTo?: string,
 ): { from: Date; to: Date } {
-  // getDateRange already works in UTC. For today/week presets we override
-  // with IST-aligned midnight boundaries.
-  if (period === "today") {
-    const nowIST = new Date(Date.now() + IST_OFFSET_MS);
-    // Start of today in IST = YYYY-MM-DD 00:00:00 IST = UTC minus 5.5 h
-    const todayIST = new Date(
-      Date.UTC(
-        nowIST.getUTCFullYear(),
-        nowIST.getUTCMonth(),
-        nowIST.getUTCDate(),
-        0, 0, 0, 0,
-      ) - IST_OFFSET_MS,
-    );
-    const endIST = new Date(todayIST.getTime() + 24 * 60 * 60 * 1000 - 1);
-    return { from: todayIST, to: endIST };
-  }
-  // For all other presets, the existing getDateRange is fine.
   return getDateRange(period, dateFrom, dateTo);
 }
 
@@ -256,7 +240,14 @@ export async function computeEmployeeStats(params: {
     );
 
     const totalInteractions = empInt.length;
-    const leadsInteracted   = new Set(empInt.map((i) => i.leadId)).size;
+    // Scoped to this employee's own leads (assigned to them, created in this
+    // period) — not just "any lead they ever touched" — so this report page
+    // stays self-consistent: every number and its drill-through describe the
+    // same cohort of leads that belongs to this employee.
+    const empLeadIds     = new Set(empLeads.map((l) => l.id));
+    const leadsInteracted = new Set(
+      empInt.filter((i) => empLeadIds.has(i.leadId)).map((i) => i.leadId),
+    ).size;
 
     // Revenue from confirmed leads created in the same period — consistent with confirmedLeads count
     const totalRevenue = empLeads.reduce((s, l) => {
@@ -650,7 +641,8 @@ export async function getTaskReport(params: {
             status: { notIn: ["COMPLETED", "CANCELLED"] },
           }
         : {}),
-      createdAt: { gte: from, lte: to },
+      // Filter by dueAt so "Today" = tasks DUE today, not tasks created today
+      dueAt: { gte: from, lte: to },
     },
     select: {
       id: true,
@@ -662,7 +654,7 @@ export async function getTaskReport(params: {
       assignedTo: { select: { id: true, name: true } },
       lead: { select: { id: true, studentName: true } },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { dueAt: "asc" },
     take: 5000,
   });
 
@@ -792,7 +784,7 @@ export async function getConversionReport(params: {
   const { from, to } = getDateRangeIST(params.period, params.dateFrom, params.dateTo);
   const branchFilter = branchId ? { branchId } : {};
 
-  const [confirmedLeads, allLeadsByEmployee] = await Promise.all([
+  const [confirmedLeads, allLeadsByEmployee, totalLeadsAllCount] = await Promise.all([
     prisma.lead.findMany({
       where: {
         ...branchFilter,
@@ -818,6 +810,10 @@ export async function getConversionReport(params: {
         assignedToId: { not: null },
       },
       _count: { id: true },
+    }),
+    // Total leads in period including unassigned — matches dashboard denominator
+    prisma.lead.count({
+      where: { ...branchFilter, createdAt: { gte: from, lte: to } },
     }),
   ]);
 
@@ -907,7 +903,8 @@ export async function getConversionReport(params: {
 
   const totalRevenue     = rows.reduce((s, r) => s + r.revenue, 0);
   const totalConfirmed   = confirmedLeads.length;
-  const totalLeadsInPeriod = Array.from(leadCountMap.values()).reduce((s, n) => s + n, 0);
+  // Use ALL leads (including unassigned) as denominator so rate matches dashboard
+  const totalLeadsInPeriod = totalLeadsAllCount;
 
   return {
     rows,

@@ -20,16 +20,21 @@ import { PeriodSelector } from "./PeriodSelector";
 import { useDashboardOverview } from "@/hooks/useDashboard";
 import { useUnassignedLeads } from "@/hooks/useLeads";
 import type { Period } from "@/hooks/useDashboard";
+import { istDateString } from "@/lib/istDate";
 
-// Minimal summary shape returned by the dashboard hook — keep in-file to avoid
-// importing broad types and to remove usage of `any`.
 type DashboardSummary = {
   totalLeadsInPeriod?: number;
   newToday?: number;
+  confirmedToday?: number;
   overdueCount?: number;
   totalActiveLeads?: number;
   interestedCount?: number;
   conversionRate?: number;
+};
+
+type DashboardData = {
+  summary?: DashboardSummary;
+  period?: { from: string; to: string };
 };
 
 export function AdminDashboard() {
@@ -39,8 +44,17 @@ export function AdminDashboard() {
   const { data, isLoading } = useDashboardOverview(period, undefined, dateFrom, dateTo);
   const { data: unassignedData, isLoading: unassignedLoading } =
     useUnassignedLeads();
-  // data may be typed as an empty object by the hook; narrow it to a local shape for summary access
-  const summary = (data as { summary?: DashboardSummary } | undefined)?.summary;
+
+  const dashData = data as DashboardData | undefined;
+  const summary = dashData?.summary;
+  const apiPeriod = dashData?.period;
+
+  // Build date params for drill-through links so leads page shows the same period
+  const drillFrom = apiPeriod?.from ?? "";
+  const drillTo   = apiPeriod?.to   ?? "";
+  const periodQs  = drillFrom && drillTo
+    ? `&dateFrom=${drillFrom}&dateTo=${drillTo}`
+    : "";
 
   return (
     <div className="space-y-6">
@@ -81,20 +95,20 @@ export function AdminDashboard() {
         <StatCard
           title="Total Leads"
           value={summary?.totalLeadsInPeriod ?? 0}
-          subtitle="vs last period"
+          subtitle="in period (all statuses)"
           icon={<Users size={16} className="text-red-600" />}
           colorVariant="red"
           loading={isLoading}
-          href="/leads"
+          href={`/leads?showAllStatuses=true${periodQs}`}
         />
         <StatCard
           title="Confirmed Today"
-          value={summary?.newToday ?? 0}
-          subtitle="new today"
+          value={summary?.confirmedToday ?? 0}
+          subtitle="confirmed today"
           icon={<CheckCircle2 size={16} className="text-green-600" />}
           colorVariant="green"
           loading={isLoading}
-          href="/confirmed"
+          href={`/confirmed?dateFrom=${istDateString(0)}&dateTo=${istDateString(0)}`}
         />
         <StatCard
           title="Pending Follow-ups"
@@ -115,22 +129,22 @@ export function AdminDashboard() {
           href="/admissions"
         />
         <StatCard
-          title="Leads This Month"
+          title="Active Leads"
           value={summary?.totalActiveLeads ?? 0}
-          subtitle="active"
+          subtitle="not closed"
           icon={<TrendingUp size={16} className="text-indigo-600" />}
           colorVariant="indigo"
           loading={isLoading}
-          href="/leads"
+          href="/leads?excludeTerminal=true"
         />
         <StatCard
           title="Conversion Rate"
           value={`${summary?.conversionRate ?? 0}%`}
-          subtitle="this period"
+          subtitle="confirmed ÷ total leads"
           icon={<CheckCircle2 size={16} className="text-green-600" />}
           colorVariant="green"
           loading={isLoading}
-          href="/admissions"
+          href="/analytics/conversions"
         />
         <StatCard
           title="Unassigned Leads"

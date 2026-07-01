@@ -1,6 +1,6 @@
 import type { PrismaClient } from "@lms/db";
 import type { Period } from "./helpers";
-import { getDateRange } from "./helpers";
+import { getDateRange, toISTDateString } from "./helpers";
 
 // ═══════════════════════════════════════
 // DASHBOARD OVERVIEW
@@ -23,6 +23,9 @@ export async function getDashboardOverview(params: {
 
   const branchFilter = branchId ? { branchId } : {};
   const dateFilter = { createdAt: { gte: from, lte: to } };
+  // "Today" always means the IST calendar day, regardless of server timezone —
+  // matches getDateRange()'s IST-aligned boundaries used everywhere else.
+  const { from: todayStart, to: todayEnd } = getDateRange("today");
 
   const [
     totalLeadsInPeriod,
@@ -31,6 +34,7 @@ export async function getDashboardOverview(params: {
     unassignedCount,
     overdueCount,
     newToday,
+    confirmedToday,
     totalActiveLeads,
     interestedCount,
     statusBreakdown,
@@ -76,13 +80,20 @@ export async function getDashboardOverview(params: {
       },
     }),
 
-    // New leads today specifically
+    // New leads today specifically (IST calendar day)
     prisma.lead.count({
       where: {
         ...branchFilter,
-        createdAt: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0)),
-        },
+        createdAt: { gte: todayStart, lte: todayEnd },
+      },
+    }),
+
+    // Confirmed today specifically (IST calendar day)
+    prisma.lead.count({
+      where: {
+        ...branchFilter,
+        status: "CONFIRMED",
+        confirmedAt: { gte: todayStart, lte: todayEnd },
       },
     }),
 
@@ -121,9 +132,14 @@ export async function getDashboardOverview(params: {
       unassignedCount,
       overdueCount,
       newToday,
+      confirmedToday,
       totalActiveLeads,
       interestedCount,
       conversionRate,
+    },
+    period: {
+      from: toISTDateString(from),
+      to: toISTDateString(to),
     },
     pipeline: statusBreakdown.map((s) => ({
       status: s.status,
@@ -302,7 +318,15 @@ export async function getEmployeePerformance(params: {
     const callMinutes = Math.round(
       empCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0) / 60,
     );
-    const leadsInteracted = new Set(empInteractions.map((i) => i.leadId)).size;
+    // Any interaction counts — a lead the employee only noted or messaged
+    // (never called) still counts as "interacted". Scoped to this employee's
+    // own leads (assigned to them, created in this period) — not any lead
+    // they ever touched — so this row's numbers and its drill-through
+    // (assignedToId + interactedByUserId) describe the same set of leads.
+    const employeeLeadIds = new Set(employeeLeads.map((l) => l.id));
+    const leadsInteracted = new Set(
+      empInteractions.filter((i) => employeeLeadIds.has(i.leadId)).map((i) => i.leadId),
+    ).size;
 
     // ── Daily activity chart — period-scoped (not fixed 7 days) ──
     const msPerDay = 24 * 60 * 60 * 1000;
@@ -351,11 +375,27 @@ export async function getEmployeePerformance(params: {
     (a, b) => b.metrics.performanceScore - a.metrics.performanceScore,
   );
 
+  // Totals computed from raw seconds and rounded once — summing the
+  // already-rounded per-employee minutes would drift from the calls report's
+  // total (which rounds a single sum), off by up to ~30s per employee.
+  const allCalls = allEmployeeInteractions.filter((i) => i.type === "CALL");
+  const totals = {
+    totalCalls: allCalls.length,
+    totalMinutes: Math.round(
+      allCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0) / 60,
+    ),
+    // Sum of the (now per-employee-scoped) leadsInteracted values — safe to
+    // add directly since each lead belongs to at most one employee's own
+    // lead set, so there's no cross-employee double-counting to worry about.
+    totalInteracted: metrics.reduce((s, m) => s + m.metrics.leadsInteracted, 0),
+  };
+
   return {
     employees: metrics,
+    totals,
     period: {
-      from: from.toISOString().split("T")[0]!,
-      to: to.toISOString().split("T")[0]!,
+      from: toISTDateString(from),
+      to: toISTDateString(to),
     },
   };
 }

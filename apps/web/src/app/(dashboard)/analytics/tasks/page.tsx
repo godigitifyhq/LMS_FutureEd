@@ -11,16 +11,17 @@ import { useStaffList } from "@/hooks/useLeads";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
 
+// Plain-language labels for non-technical users
 const STATUS_LABELS: Record<string, string> = {
-  PENDING:     "Pending",
-  IN_PROGRESS: "In Progress",
-  COMPLETED:   "Completed",
-  CANCELLED:   "Cancelled",
+  PENDING:     "Scheduled",
+  IN_PROGRESS: "Scheduled",
+  COMPLETED:   "Done",
+  CANCELLED:   "Closed",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING:     "bg-yellow-50 text-yellow-700",
-  IN_PROGRESS: "bg-blue-50 text-blue-700",
+  IN_PROGRESS: "bg-yellow-50 text-yellow-700",
   COMPLETED:   "bg-green-50 text-green-700",
   CANCELLED:   "bg-gray-100 text-gray-500",
 };
@@ -32,9 +33,9 @@ export default function TasksPage() {
   const [period,     setPeriod]     = useState<Period>((searchParams.get("period") as Period) ?? "last30");
   const [dateFrom,   setDateFrom]   = useState(searchParams.get("dateFrom") ?? "");
   const [dateTo,     setDateTo]     = useState(searchParams.get("dateTo") ?? "");
-  const [employeeId] = useState(searchParams.get("employeeId") ?? "");
+  const [employeeId, setEmployeeId] = useState(searchParams.get("employeeId") ?? "");
   const [status,     setStatus]     = useState(searchParams.get("status") ?? "");
-  const [overdue]    = useState(searchParams.get("overdue") ?? "");
+  const [overdue]                   = useState(searchParams.get("overdue") ?? "");
   const [title,      setTitle]      = useState(searchParams.get("title") ?? "");
 
   useEffect(() => {
@@ -60,7 +61,7 @@ export default function TasksPage() {
   };
 
   const { data, isLoading, isError, refetch } = useTaskReport(filters);
-  const { data: employees } = useStaffList();
+  const { data: staffData } = useStaffList();
   const payload: TaskReportResponse | undefined = data?.data;
   const rows: TaskReportRow[] = payload?.rows ?? [];
   const totals: TaskReportResponse["totals"] = payload?.totals ?? {
@@ -74,7 +75,7 @@ export default function TasksPage() {
   return (
     <ReportShell
       title="Task Report"
-      description="Track task completion and overdue items by employee."
+      description="Shows all scheduled follow-ups. Filter by date to see what was due, done, or missed."
       period={period}
       dateFrom={dateFrom}
       dateTo={dateTo}
@@ -94,49 +95,47 @@ export default function TasksPage() {
           className="border border-surface-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary min-w-52"
         />
         <select
+          aria-label="Filter by assignee"
           value={employeeId}
-          onChange={(e) => {
-            const p = new URLSearchParams();
-            p.set("period", period);
-            if (period === "custom" && dateFrom) p.set("dateFrom", dateFrom);
-            if (period === "custom" && dateTo) p.set("dateTo", dateTo);
-            if (e.target.value) p.set("employeeId", e.target.value);
-            if (status) p.set("status", status);
-            if (overdue) p.set("overdue", overdue);
-            if (title) p.set("title", title);
-            router.replace(`/analytics/tasks?${p.toString()}`, { scroll: false });
-          }}
+          onChange={(e) => setEmployeeId(e.target.value)}
           className="border border-surface-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
         >
           <option value="">All Assignees</option>
-          {employees?.map((employee) => (
-            <option key={employee.id} value={employee.id}>
-              {employee.name}
+          {staffData?.map((emp) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.name}
             </option>
           ))}
         </select>
         <select
+          aria-label="Filter by status"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
           className="border border-surface-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          <option value="">All Statuses</option>
-          {Object.entries(STATUS_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
+          <option value="">All Follow-ups</option>
+          <option value="PENDING">Scheduled (upcoming)</option>
+          <option value="COMPLETED">Done</option>
+          <option value="CANCELLED">Closed</option>
         </select>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <SumCard label="Total"     value={totals.total     ?? 0} color="text-gray-700" />
-        <SumCard label="Pending"   value={totals.pending   ?? 0} color="text-yellow-600" />
-        <SumCard label="Completed" value={totals.completed ?? 0} color="text-green-600" />
-        <SumCard label="Overdue"   value={totals.overdue   ?? 0} color={totals.overdue > 0 ? "text-red-600" : "text-gray-400"} />
+        <SumCard label="Scheduled" value={totals.pending   ?? 0} color="text-yellow-600" />
+        <SumCard label="Done"      value={totals.completed ?? 0} color="text-green-600" />
+        <SumCard label="Missed"    value={totals.overdue   ?? 0} color={totals.overdue > 0 ? "text-red-600" : "text-gray-400"} />
       </div>
-      <p className="text-xs text-gray-400">
-        `Pending` means open tasks. `Overdue` means open tasks whose due time has passed.
-      </p>
+
+      {/* How follow-ups work */}
+      <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-xs text-blue-700 space-y-1">
+        <p><strong>How follow-up tracking works:</strong></p>
+        <p>• <strong>Scheduled</strong> — a follow-up date is set on the lead and the date has not passed yet.</p>
+        <p>• <strong>Missed</strong> — the follow-up date passed and no action was taken on the lead.</p>
+        <p>• <strong>Done</strong> — the employee called the lead (the old follow-up date was past due) and set a new follow-up date, marking the previous one complete.</p>
+        <p>• <strong>Closed</strong> — the lead reached a final status (Confirmed, Lost, Not Interested, Not Reachable, Duplicate), so the follow-up was automatically removed.</p>
+      </div>
 
       {isLoading && <TaskTableSkeleton />}
       {isError && (
@@ -158,7 +157,7 @@ export default function TasksPage() {
             <table className="w-full text-sm min-w-162.5">
               <thead>
                 <tr className="bg-surface-50 border-b border-surface-200">
-                  {["Title", "Assignee", "Status", "Lead", "Due At", "Completed At", "Overdue"].map((h) => (
+                  {["Title", "Assignee", "Status", "Lead", "Due Date", "Done At", ""].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -172,7 +171,7 @@ export default function TasksPage() {
                       if (r.leadId) router.push(`/leads/${r.leadId}`);
                     }}
                   >
-                    <td className="px-4 py-2.5 font-medium text-gray-800 max-w-[200px] truncate">
+                    <td className="px-4 py-2.5 font-medium text-gray-800 max-w-50 truncate">
                       {r.leadId ? (
                         <Link
                           href={`/leads/${r.leadId}`}
@@ -211,10 +210,8 @@ export default function TasksPage() {
                       {r.completedAt ? fmtDate(r.completedAt) : "—"}
                     </td>
                     <td className="px-4 py-2.5">
-                      {r.isOverdue ? (
-                        <span className="text-red-500 text-xs font-semibold">Yes</span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">No</span>
+                      {r.isOverdue && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-600">Missed</span>
                       )}
                     </td>
                   </tr>

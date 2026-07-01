@@ -335,7 +335,9 @@ export async function transitionLeadRoute(
         const shouldCancelFollowUpTask =
           toStatus === LeadStatus.CONFIRMED ||
           toStatus === LeadStatus.LOST ||
-          toStatus === LeadStatus.DUPLICATE;
+          toStatus === LeadStatus.DUPLICATE ||
+          toStatus === LeadStatus.NOT_INTERESTED ||
+          toStatus === LeadStatus.NOT_REACHABLE;
 
         await syncLeadFollowUpTask(tx, {
           leadId: lead.id,

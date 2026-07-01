@@ -6,17 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Play, Phone } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useCallReport } from "@/hooks/useReports";
+import { useStaffList } from "@/hooks/useLeads";
 import type { CallReportResponse, CallReportRow } from "@/hooks/useReports";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
-
-const OUTCOME_LABELS: Record<string, string> = {
-  CONNECTED:    "Connected",
-  NO_ANSWER:    "No Answer",
-  BUSY:         "Busy",
-  REJECTED:     "Rejected",
-  WRONG_NUMBER: "Wrong Number",
-};
 
 const OUTCOME_COLORS: Record<string, string> = {
   CONNECTED:    "bg-green-50 text-green-700",
@@ -26,6 +19,14 @@ const OUTCOME_COLORS: Record<string, string> = {
   WRONG_NUMBER: "bg-gray-100 text-gray-600",
 };
 
+const OUTCOME_LABELS: Record<string, string> = {
+  CONNECTED:    "Connected",
+  NO_ANSWER:    "No Answer",
+  BUSY:         "Busy",
+  REJECTED:     "Rejected",
+  WRONG_NUMBER: "Wrong Number",
+};
+
 export default function CallsPage() {
   const searchParams = useSearchParams();
   const router       = useRouter();
@@ -33,8 +34,7 @@ export default function CallsPage() {
   const [period,     setPeriod]     = useState<Period>((searchParams.get("period") as Period) ?? "last30");
   const [dateFrom,   setDateFrom]   = useState(searchParams.get("dateFrom") ?? "");
   const [dateTo,     setDateTo]     = useState(searchParams.get("dateTo") ?? "");
-  const [employeeId] = useState(searchParams.get("employeeId") ?? "");
-  const [outcome,    setOutcome]    = useState(searchParams.get("outcome") ?? "");
+  const [employeeId, setEmployeeId] = useState(searchParams.get("employeeId") ?? "");
 
   useEffect(() => {
     const p = new URLSearchParams();
@@ -42,19 +42,18 @@ export default function CallsPage() {
     if (period === "custom" && dateFrom) p.set("dateFrom", dateFrom);
     if (period === "custom" && dateTo)   p.set("dateTo",   dateTo);
     if (employeeId) p.set("employeeId", employeeId);
-    if (outcome)    p.set("outcome",    outcome);
     router.replace(`/analytics/calls?${p.toString()}`, { scroll: false });
-  }, [period, dateFrom, dateTo, employeeId, outcome]);
+  }, [period, dateFrom, dateTo, employeeId]);
 
   const filters = {
     period,
     ...(period === "custom" && dateFrom ? { dateFrom } : {}),
     ...(period === "custom" && dateTo   ? { dateTo }   : {}),
     ...(employeeId ? { employeeId } : {}),
-    ...(outcome    ? { outcome }    : {}),
   };
 
   const { data, isLoading, isError, refetch } = useCallReport(filters);
+  const { data: staffData } = useStaffList();
   const payload: CallReportResponse | undefined = data?.data;
   const rows: CallReportRow[] = payload?.rows ?? [];
   const totals: CallReportResponse["totals"] = payload?.totals ?? {
@@ -67,7 +66,7 @@ export default function CallsPage() {
   return (
     <ReportShell
       title="Call Report"
-      description="All calls logged by employees. Filters by outcome, employee, and date."
+      description="All calls logged by employees. Filter by employee and date."
       period={period}
       dateFrom={dateFrom}
       dateTo={dateTo}
@@ -76,21 +75,21 @@ export default function CallsPage() {
       onDateToChange={setDateTo}
       resolvedRange={resolved}
       csvExportPath="/analytics/export/csv/calls"
-      csvExportParams={{ period, ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}), ...(employeeId ? { employeeId } : {}), ...(outcome ? { outcome } : {}) }}
+      csvExportParams={{ period, ...(dateFrom ? { dateFrom } : {}), ...(dateTo ? { dateTo } : {}), ...(employeeId ? { employeeId } : {}) }}
     >
-      {/* Extra filters */}
+      {/* Employee filter */}
       <div className="flex flex-wrap gap-2 items-center">
-        <label htmlFor="outcome-filter" className="sr-only">Filter by outcome</label>
+        <label htmlFor="employee-filter" className="sr-only">Filter by employee</label>
         <select
-          id="outcome-filter"
-          aria-label="Filter by outcome"
-          value={outcome}
-          onChange={(e) => setOutcome(e.target.value)}
+          id="employee-filter"
+          aria-label="Filter by employee"
+          value={employeeId}
+          onChange={(e) => setEmployeeId(e.target.value)}
           className="border border-surface-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
         >
-          <option value="">All Outcomes</option>
-          {Object.entries(OUTCOME_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
+          <option value="">All Employees</option>
+          {staffData?.map((emp) => (
+            <option key={emp.id} value={emp.id}>{emp.name}</option>
           ))}
         </select>
       </div>

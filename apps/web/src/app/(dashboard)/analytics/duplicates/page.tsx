@@ -1,17 +1,42 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Copy } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useDuplicateReport } from "@/hooks/useReports";
+import { useStaffList } from "@/hooks/useLeads";
 import { cn } from "@/lib/utils";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 
+const STATUS_COLORS: Record<string, string> = {
+  NEW:                "bg-blue-50 text-blue-700",
+  ATTEMPTED_CONTACT:  "bg-orange-50 text-orange-700",
+  CONNECTED:          "bg-teal-50 text-teal-700",
+  INTERESTED:         "bg-indigo-50 text-indigo-700",
+  FOLLOW_UP_SCHEDULED:"bg-purple-50 text-purple-700",
+  APPLICATION_SENT:   "bg-cyan-50 text-cyan-700",
+  UNDER_VALIDATION:   "bg-yellow-50 text-yellow-700",
+  CONFIRMED:          "bg-green-50 text-green-700",
+  LOST:               "bg-red-50 text-red-700",
+  NOT_INTERESTED:     "bg-gray-100 text-gray-600",
+  NOT_REACHABLE:      "bg-rose-50 text-rose-600",
+  DUPLICATE:          "bg-orange-50 text-orange-700",
+};
+
 export default function DuplicatesPage() {
+  const [employeeId, setEmployeeId] = useState("");
   const { data, isLoading, isError, refetch } = useDuplicateReport();
-  const rows: any[] = (data as any)?.data?.rows ?? [];
-  const total       = (data as any)?.data?.total ?? 0;
+  const { data: staffData } = useStaffList();
+
+  const allRows: any[] = (data as any)?.data?.rows ?? [];
+  const total          = (data as any)?.data?.total ?? 0;
+
+  // Client-side employee filter
+  const rows = employeeId
+    ? allRows.filter((r: any) => r.assigneeId === employeeId)
+    : allRows;
 
   const [markingId, setMarkingId] = useState<string | null>(null);
 
@@ -41,9 +66,26 @@ export default function DuplicatesPage() {
       onPeriodChange={() => {}}
       csvExportPath="/analytics/export/csv/duplicates"
     >
-      <div className="bg-white border border-surface-200 rounded-xl px-4 py-3 flex items-center gap-2">
-        <Copy size={16} className="text-orange-500" />
-        <span className="text-sm font-semibold text-gray-700">{total} duplicate leads detected</span>
+      {/* Summary + filters */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 bg-white border border-surface-200 rounded-xl px-4 py-3">
+          <Copy size={16} className="text-orange-500" />
+          <span className="text-sm font-semibold text-gray-700">
+            {total} duplicate leads detected
+            {employeeId && rows.length !== total ? ` · ${rows.length} shown for this employee` : ""}
+          </span>
+        </div>
+        <select
+          aria-label="Filter by employee"
+          value={employeeId}
+          onChange={(e) => setEmployeeId(e.target.value)}
+          className="border border-surface-200 rounded-lg px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">All Employees</option>
+          {staffData?.map((emp) => (
+            <option key={emp.id} value={emp.id}>{emp.name}</option>
+          ))}
+        </select>
       </div>
 
       {isLoading && (
@@ -64,7 +106,7 @@ export default function DuplicatesPage() {
       {!isLoading && !isError && rows.length === 0 && (
         <div className="text-center py-14 text-gray-400">
           <Copy size={32} className="mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No duplicate leads found. ✨</p>
+          <p className="text-sm">{allRows.length === 0 ? "No duplicate leads found. ✨" : "No duplicates for this employee."}</p>
         </div>
       )}
 
@@ -74,7 +116,7 @@ export default function DuplicatesPage() {
             <table className="w-full text-sm min-w-187.5">
               <thead>
                 <tr className="bg-surface-50 border-b border-surface-200">
-                  {["Duplicate Lead", "Phone", "Status", "Original Lead", "Assigned To", "Created", "Action"].map((h) => (
+                  {["Duplicate Lead", "Phone", "Lead Status", "Original Lead", "Assigned To", "Created", "Action"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -83,11 +125,13 @@ export default function DuplicatesPage() {
                 {rows.map((r: any) => (
                   <tr key={r.duplicateId} className="border-b border-surface-50 hover:bg-surface-50">
                     <td className="px-4 py-2.5">
-                      <p className="font-medium text-gray-800">{r.duplicateName}</p>
+                      <Link href={`/leads/${r.duplicateId}`} className="font-medium text-gray-800 hover:text-primary hover:underline">
+                        {r.duplicateName}
+                      </Link>
                     </td>
                     <td className="px-4 py-2.5 text-gray-500">{r.duplicatePhone}</td>
                     <td className="px-4 py-2.5">
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
+                      <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", STATUS_COLORS[r.duplicateStatus] ?? "bg-gray-100 text-gray-600")}>
                         {r.duplicateStatus}
                       </span>
                     </td>

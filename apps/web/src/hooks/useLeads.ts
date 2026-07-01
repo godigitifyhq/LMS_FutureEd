@@ -42,6 +42,9 @@ export type LeadFilters = {
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   overdue?: boolean;
+  showAllStatuses?: boolean;   // bypass ALL status exclusion (Total Leads card)
+  excludeTerminal?: boolean;   // exclude only CONFIRMED/DUPLICATE/LOST — matches dashboard active count
+  upcoming?: boolean;          // show leads with follow-up due in next 7 days
 };
 
 // ── Lead list with auto-refresh ──

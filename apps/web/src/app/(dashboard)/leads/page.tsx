@@ -65,6 +65,12 @@ export default function LeadsPage() {
     if (dateTo) patch.dateTo = dateTo;
     const overdue = params.get("overdue");
     if (overdue === "true") patch.overdue = true;
+    const showAllStatuses = params.get("showAllStatuses");
+    if (showAllStatuses === "true") patch.showAllStatuses = true;
+    const excludeTerminal = params.get("excludeTerminal");
+    if (excludeTerminal === "true") patch.excludeTerminal = true;
+    const upcoming = params.get("upcoming");
+    if (upcoming === "true") patch.upcoming = true;
     if (Object.keys(patch).length > 0) setFilters((prev) => ({ ...prev, ...patch }));
   }, []);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");

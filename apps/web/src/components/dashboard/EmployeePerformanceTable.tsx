@@ -72,24 +72,36 @@ function StatMini({
   return <div className={base}>{inner}</div>;
 }
 
-function ExpandedRow({ emp }: { emp: EmployeeRow }) {
-  const m = emp.metrics;
-  const id = emp.employee.id;
-  const base = `/leads?assignedToId=${id}`;
-  const callsBase = `/analytics/calls?employeeId=${id}`;
+function ExpandedRow({
+  emp,
+  callsPeriodQs,
+  leadsPeriodQs,
+}: {
+  emp: EmployeeRow;
+  callsPeriodQs: string;
+  leadsPeriodQs: string;
+}) {
+  const m   = emp.metrics;
+  const id  = emp.employee.id;
+  // All lead links include the period date range so the count matches what the table shows
+  const base         = `/leads?assignedToId=${id}${leadsPeriodQs ? `&${leadsPeriodQs.slice(1)}` : ""}`;
+  const callsBase    = `/analytics/calls?employeeId=${id}${callsPeriodQs ? `&${callsPeriodQs.slice(1)}` : ""}`;
+  // leadsInteracted is scoped to this employee's own leads that they've
+  // personally interacted with — matches assignedToId + interactedByUserId.
+  const interactedHref = `${base}&interactedByUserId=${id}`;
 
   return (
     <tr>
       <td colSpan={9} className="bg-surface-50 border-b border-surface-100 px-4 pb-4 pt-2">
         <p className="text-xs text-gray-400 mb-2">Click any card to view those leads</p>
         <div className="flex flex-wrap gap-2 mb-3">
-          <StatMini icon={Users}        label="All Leads"  value={m.totalAssigned}          color="bg-gray-100 text-gray-600"    href={`${base}`} />
+          <StatMini icon={Users}        label="All Leads"  value={m.totalAssigned}          color="bg-gray-100 text-gray-600"    href={base} />
           <StatMini icon={Phone}        label="Calls"      value={m.callCount ?? 0}         color="bg-blue-50 text-blue-600"     href={callsBase} />
-          <StatMini icon={Clock}        label="Call Mins"  value={`${m.callMinutes ?? 0}m`} color="bg-orange-50 text-orange-500" />
-          <StatMini icon={Users}        label="Interacted" value={m.leadsInteracted ?? 0}   color="bg-violet-50 text-violet-600" href={`${base}&interactedByUserId=${id}`} />
-          <StatMini icon={CheckCircle2} label="Confirmed"  value={m.confirmed}               color="bg-green-50 text-green-600"   href={`${base}&status=CONFIRMED`} />
-          <StatMini icon={AlertCircle}  label="Overdue"    value={m.overdueFollowUps}        color="bg-red-50 text-red-500"       href={`${base}&overdue=true`} />
-          <StatMini icon={AlertCircle}  label="Lost"       value={m.lost}                    color="bg-rose-50 text-rose-600"     href={`${base}&status=LOST`} />
+          <StatMini icon={Clock}        label="Call Mins"  value={`${m.callMinutes ?? 0}m`} color="bg-orange-50 text-orange-500" href={callsBase} />
+          <StatMini icon={Users}        label="Interacted" value={m.leadsInteracted ?? 0}   color="bg-violet-50 text-violet-600" href={interactedHref} />
+          <StatMini icon={CheckCircle2} label="Confirmed"  value={m.confirmed}              color="bg-green-50 text-green-600"   href={`${base}&status=CONFIRMED`} />
+          <StatMini icon={AlertCircle}  label="Overdue"    value={m.overdueFollowUps}       color="bg-red-50 text-red-500"       href={`/leads?assignedToId=${id}&overdue=true`} />
+          <StatMini icon={AlertCircle}  label="Lost"       value={m.lost}                   color="bg-rose-50 text-rose-600"     href={`${base}&status=LOST`} />
         </div>
 
         <div className="bg-white border border-surface-100 rounded-lg p-2">
@@ -108,8 +120,28 @@ export function EmployeePerformanceTable() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const { data, isLoading } = useEmployeePerformance(period, dateFrom, dateTo);
 
-  const rawData = data as { employees?: EmployeeRow[] } | undefined;
+  const rawData = data as {
+    employees?: EmployeeRow[];
+    totals?: { totalCalls: number; totalMinutes: number; totalInteracted: number };
+    period?: { from: string; to: string };
+  } | undefined;
   const employees: EmployeeRow[] = Array.isArray(rawData?.employees) ? (rawData?.employees ?? []) : [];
+  const apiPeriod = rawData?.period;
+
+  // Totals come from the backend (computed from raw seconds, rounded once) so
+  // they reconcile with the calls report instead of drifting from summing
+  // already-rounded per-employee minutes.
+  const totalCalls      = rawData?.totals?.totalCalls      ?? 0;
+  const totalMinutes    = rawData?.totals?.totalMinutes    ?? 0;
+  const totalInteracted = rawData?.totals?.totalInteracted ?? 0;
+
+  // Build period query strings for drill-through links
+  const callsPeriodQs = period === "custom" && dateFrom && dateTo
+    ? `?period=custom&dateFrom=${dateFrom}&dateTo=${dateTo}`
+    : `?period=${period}`;
+  const leadsPeriodQs = apiPeriod?.from && apiPeriod?.to
+    ? `?dateFrom=${apiPeriod.from}&dateTo=${apiPeriod.to}&showAllStatuses=true`
+    : "";
 
   const headers = ["Employee", "Leads", "Confirmed", "Lost", "Calls", "Mins", "Interacted", "Conv %"];
 
@@ -124,6 +156,35 @@ export function EmployeePerformanceTable() {
           )}
         </div>
       </div>
+
+      {/* Summary cards. Calls/Minutes are clickable (go to the Call Report).
+          Interacted is a sum of each employee's own-leads-interacted count —
+          there's no single Leads-list filter that reproduces "per-lead,
+          interacted by its own current assignee" across everyone at once,
+          so this one isn't a link (an approximate one would just reintroduce
+          a mismatch, same as the calls-report link did before). */}
+      {!isLoading && employees.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <Link
+            href={`/analytics/calls${callsPeriodQs}`}
+            className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-center hover:border-blue-300 hover:bg-blue-100 transition-colors"
+          >
+            <p className="text-xs text-blue-500 font-medium">Total Calls</p>
+            <p className="text-lg font-bold text-blue-700">{totalCalls}</p>
+          </Link>
+          <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-center">
+            <p className="text-xs text-green-500 font-medium">Leads Interacted</p>
+            <p className="text-lg font-bold text-green-700">{totalInteracted}</p>
+          </div>
+          <Link
+            href={`/analytics/calls${callsPeriodQs}`}
+            className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-center hover:border-orange-300 hover:bg-orange-100 transition-colors"
+          >
+            <p className="text-xs text-orange-500 font-medium">Total Minutes</p>
+            <p className="text-lg font-bold text-orange-600">{totalMinutes}m</p>
+          </Link>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -183,10 +244,24 @@ export function EmployeePerformanceTable() {
                       <td className="py-2.5 pr-4 text-sm text-red-500">{emp.metrics.lost}</td>
                       <td className="py-2.5 pr-4 text-sm text-blue-600 font-medium">{emp.metrics.callCount ?? 0}</td>
                       <td className="py-2.5 pr-4 text-sm text-orange-500 font-medium">{emp.metrics.callMinutes ?? 0}m</td>
-                      <td className="py-2.5 pr-4 text-sm text-violet-600 font-medium">{emp.metrics.leadsInteracted ?? 0}</td>
+                      <td className="py-2.5 pr-4 text-sm text-violet-600 font-medium">
+                        <Link
+                          href={`/leads?assignedToId=${emp.employee.id}&interactedByUserId=${emp.employee.id}${leadsPeriodQs ? `&${leadsPeriodQs.slice(1)}` : ""}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="hover:underline"
+                        >
+                          {emp.metrics.leadsInteracted ?? 0}
+                        </Link>
+                      </td>
                       <td className="py-2.5 pr-4 text-sm font-semibold text-gray-700">{emp.metrics.confirmationRate}%</td>
                     </tr>
-                    {isExpanded && <ExpandedRow emp={emp} />}
+                    {isExpanded && (
+                      <ExpandedRow
+                        emp={emp}
+                        callsPeriodQs={callsPeriodQs}
+                        leadsPeriodQs={leadsPeriodQs}
+                      />
+                    )}
                   </Fragment>
                 );
               })}

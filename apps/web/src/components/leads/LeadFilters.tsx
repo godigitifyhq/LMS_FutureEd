@@ -177,16 +177,19 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
             title="Filter by status"
             onChange={(e) => {
               const value = e.target.value;
+              // Picking a status explicitly always overrides a dashboard
+              // drill-through's showAllStatuses flag lingering in state.
+              const { showAllStatuses: _sas, ...base } = filters;
               if (value) {
                 onChange({
-                  ...filters,
+                  ...base,
                   status: value as LeadStatus,
                   page: 1,
                 });
                 return;
               }
 
-              const { status: _status, ...rest } = filters;
+              const { status: _status, ...rest } = base;
               onChange({
                 ...rest,
                 page: 1,

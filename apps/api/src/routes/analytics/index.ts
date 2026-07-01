@@ -292,6 +292,12 @@ export async function analyticsRoutes(fastify: FastifyInstance): Promise<void> {
     if (q.period === "custom" && q.dateFrom && q.dateTo) {
       from = new Date(q.dateFrom);
       to = new Date(q.dateTo + "T23:59:59Z");
+    } else if (q.period === "yesterday") {
+      to = new Date();
+      to.setDate(to.getDate() - 1);
+      to.setHours(23, 59, 59, 999);
+      from = new Date(to);
+      from.setHours(0, 0, 0, 0);
     } else {
       const days = q.period === "last90" ? 90 : q.period === "last30" ? 30 : q.period === "today" ? 1 : 7;
       to = new Date();

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Trophy, TrendingUp, TrendingDown, Minus, Users, Phone, CheckCircle2, DollarSign, ChevronRight } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, Minus, Users, Phone, CheckCircle2, DollarSign, ChevronRight, Clock } from "lucide-react";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useLeaderboard } from "@/hooks/useReports";
 import type { LeaderboardRow } from "@/hooks/useReports";
@@ -67,6 +67,18 @@ export default function LeaderboardPage() {
       csvExportPath="/analytics/export/csv/leaderboard"
       csvExportParams={exportParams}
     >
+      {/* Summary cards — aggregate across all employees */}
+      {!isLoading && !isError && rows.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <SummaryCard icon={Users}        label="Assigned Leads"     value={rows.reduce((s, r) => s + r.totalLeads, 0)}      color="text-gray-700" />
+          <SummaryCard icon={CheckCircle2} label="Assigned Confirmed" value={rows.reduce((s, r) => s + r.confirmedLeads, 0)}  color="text-green-600" />
+          <SummaryCard icon={Phone}        label="Total Calls"     value={rows.reduce((s, r) => s + r.totalCalls, 0)}      color="text-blue-600" />
+          <SummaryCard icon={CheckCircle2} label="Connected"       value={rows.reduce((s, r) => s + r.connectedCalls, 0)}  color="text-teal-600" />
+          <SummaryCard icon={Clock}        label="Call Minutes"    value={`${rows.reduce((s, r) => s + r.totalCallMinutes, 0)}m`} color="text-orange-500" />
+          <SummaryCard icon={DollarSign}   label="Revenue"         value={formatCurrency(rows.reduce((s, r) => s + r.totalRevenue, 0))} color="text-violet-600" />
+        </div>
+      )}
+
       {/* View toggle */}
       <div className="flex items-center justify-end gap-2 mb-2">
         <button
@@ -213,6 +225,18 @@ export default function LeaderboardPage() {
         </div>
       )}
     </ReportShell>
+  );
+}
+
+function SummaryCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: string | number; color: string }) {
+  return (
+    <div className="bg-white border border-surface-200 rounded-xl px-4 py-3">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon size={12} className={color} />
+        <p className="text-xs text-gray-400">{label}</p>
+      </div>
+      <p className={cn("text-lg font-bold", color)}>{value}</p>
+    </div>
   );
 }
 

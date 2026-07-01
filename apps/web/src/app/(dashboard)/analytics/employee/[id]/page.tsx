@@ -99,7 +99,17 @@ export default function EmployeeDetailPage() {
   if (period === "custom" && dateFrom) reportQs.set("dateFrom", dateFrom);
   if (period === "custom" && dateTo) reportQs.set("dateTo", dateTo);
   const reportQuery = reportQs.toString();
-  const leadsBase = `/leads?assignedToId=${id}`;
+  // The Leads list has no "period" shorthand, and defaults status-filtered
+  // date ranges to createdAt — matching how confirmedLeads/totalLeads below
+  // are computed (leads created in this window), so the drill-through count
+  // reconciles with the KPI card instead of silently showing all-time leads.
+  const leadsPeriodQs = resolvedRange?.from && resolvedRange?.to
+    ? `&dateFrom=${resolvedRange.from}&dateTo=${resolvedRange.to}&showAllStatuses=true`
+    : "";
+  const leadsBase = `/leads?assignedToId=${id}${leadsPeriodQs}`;
+  // leadsInteracted is scoped to leads currently assigned to this employee
+  // that they've personally interacted with — matches assignedToId + interactedByUserId.
+  const interactedHref = `${leadsBase}&interactedByUserId=${id}`;
   const callsBase = `/analytics/calls?employeeId=${id}&${reportQuery}`;
   const tasksBase = `/analytics/tasks?employeeId=${id}&${reportQuery}`;
 
@@ -141,8 +151,9 @@ export default function EmployeeDetailPage() {
             <KpiCard icon={Clock} label="Starting Call" value={fmtReportDateTime(stats.firstCallAt)} color="text-slate-600" href={callsBase} />
             <KpiCard icon={Clock} label="Last Call" value={fmtReportDateTime(stats.lastCallAt)} color="text-emerald-600" href={callsBase} />
             <KpiCard icon={TrendingUp} label="Revenue" value={formatCurrency(stats.totalRevenue)} color="text-violet-600" href={`${leadsBase}&status=CONFIRMED`} />
-            <KpiCard icon={AlertCircle} label="Overdue" value={stats.overdueFollowUps} color={stats.overdueFollowUps > 0 ? "text-red-500" : "text-gray-400"} href={`${leadsBase}&overdue=true`} />
-            <KpiCard icon={Users} label="Interacted" value={stats.leadsInteracted} color="text-indigo-600" href={`${leadsBase}&interactedByUserId=${id}`} />
+            {/* overdueFollowUps is current-state (no period filter) — must not carry leadsBase's date range */}
+            <KpiCard icon={AlertCircle} label="Overdue" value={stats.overdueFollowUps} color={stats.overdueFollowUps > 0 ? "text-red-500" : "text-gray-400"} href={`/leads?assignedToId=${id}&overdue=true`} />
+            <KpiCard icon={Users} label="Interacted" value={stats.leadsInteracted} color="text-indigo-600" href={interactedHref} />
             <KpiCard icon={CheckCircle2} label="Tasks Done" value={stats.tasksCompleted} color="text-teal-600" href={`${tasksBase}&status=COMPLETED`} />
             <KpiCard icon={AlertCircle} label="Tasks Overdue" value={stats.tasksOverdue} color={stats.tasksOverdue > 0 ? "text-red-500" : "text-gray-400"} href={`${tasksBase}&overdue=true`} />
           </div>

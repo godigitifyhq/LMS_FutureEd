@@ -11,6 +11,7 @@ type Props = {
 
 const OPTIONS: Array<{ value: Period; label: string }> = [
   { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
   { value: "week", label: "7 days" },
   { value: "last30", label: "30 days" },
   { value: "last90", label: "90 days" },

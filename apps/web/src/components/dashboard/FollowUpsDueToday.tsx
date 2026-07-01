@@ -97,16 +97,22 @@ export function FollowUpsDueToday() {
         <h3 className="text-sm font-semibold text-gray-800">Follow-ups</h3>
         <div className="flex items-center gap-1.5">
           {overdueLeads.length > 0 && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+            <Link
+              href="/leads?overdue=true"
+              className="flex items-center gap-1 text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200 hover:bg-red-100 transition-colors"
+            >
               <AlertCircle size={10} />
               {overdueLeads.length} overdue
-            </span>
+            </Link>
           )}
           {upcomingLeads.length > 0 && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+            <Link
+              href="/leads?upcoming=true"
+              className="flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 hover:bg-amber-100 transition-colors"
+            >
               <Clock size={10} />
               {upcomingLeads.length} upcoming
-            </span>
+            </Link>
           )}
         </div>
       </div>

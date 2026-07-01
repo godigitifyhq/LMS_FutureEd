@@ -28,6 +28,9 @@ export async function leadListRoute(fastify: FastifyInstance): Promise<void> {
       }
 
       const query = qValidation.data;
+      // showAllStatuses bypasses the default CONFIRMED/INTERESTED exclusion (used by dashboard drill-through)
+      const rawQuery = request.query as Record<string, string | undefined>;
+      const showAllStatuses = rawQuery.showAllStatuses === "true";
       const page = Math.max(1, query.page);
       const pageSize = ALLOWED_PAGE_SIZES.includes(query.pageSize)
         ? query.pageSize
@@ -57,6 +60,10 @@ export async function leadListRoute(fastify: FastifyInstance): Promise<void> {
       if (role !== "EMPLOYEE" && query.branchId)
         filters.branchId = query.branchId;
       if (query.overdue) filters.overdue = true;
+      if (rawQuery.upcoming === "true") filters.upcoming = true;
+      if (showAllStatuses) filters.showAllStatuses = true;
+      if (rawQuery.excludeTerminal === "true") filters.excludeTerminal = true;
+      if (rawQuery.dateBy === "confirmedAt") filters.dateBy = "confirmedAt";
 
       const where = buildLeadWhereClause({
         userId,

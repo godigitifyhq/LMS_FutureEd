@@ -166,7 +166,9 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
           const shouldCancelFollowUpTask =
             toStatus === "CONFIRMED" ||
             toStatus === "LOST" ||
-            toStatus === "DUPLICATE";
+            toStatus === "DUPLICATE" ||
+            toStatus === "NOT_INTERESTED" ||
+            toStatus === "NOT_REACHABLE";
 
           for (const lead of leadsForTasks) {
             await syncLeadFollowUpTask(tx, {
