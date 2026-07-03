@@ -9,6 +9,7 @@ import type { MyCallRow, MyInteractedLeadListRow } from "@/hooks/useMyCalls";
 import { Pagination } from "@/components/ui/Pagination";
 import { StatusBadge } from "@/components/leads/StatusBadge";
 import { cn } from "@/lib/utils";
+import { getISTDateRange } from "@/lib/istDate";
 import type { LeadStatus } from "@lms/types";
 
 const OUTCOME_COLORS: Record<string, string> = {
@@ -48,6 +49,9 @@ export default function MyCallsPage() {
   const [dateTo, setDateTo] = useState(searchParams.get("dateTo") ?? "");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+
+  const yesterdayRange = getISTDateRange("yesterday");
+  const last30Range = getISTDateRange("last30");
 
   // Debounce search input so we don't refetch on every keystroke
   const [debouncedSearch, setDebouncedSearch] = useState(search);
@@ -157,23 +161,67 @@ export default function MyCallsPage() {
             <div className="flex items-center bg-surface-100 rounded-lg p-0.5 gap-0.5">
               <button
                 type="button"
-                onClick={() => setScope("all")}
+                onClick={() => {
+                  setScope("all");
+                  setDateFrom("");
+                  setDateTo("");
+                }}
                 className={cn(
                   "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                  scope === "all" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
+                  scope === "all" && !dateFrom && !dateTo
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700",
                 )}
               >
                 All Time
               </button>
               <button
                 type="button"
-                onClick={() => setScope("today")}
+                onClick={() => {
+                  setScope("today");
+                  setDateFrom("");
+                  setDateTo("");
+                }}
                 className={cn(
                   "px-3 py-1 rounded-md text-xs font-medium transition-colors",
                   scope === "today" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
                 )}
               >
                 Today
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const r = getISTDateRange("yesterday");
+                  setScope("all");
+                  setDateFrom(r.dateFrom);
+                  setDateTo(r.dateTo);
+                }}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                  scope === "all" && dateFrom === yesterdayRange.dateFrom && dateTo === yesterdayRange.dateTo
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                Yesterday
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const r = getISTDateRange("last30");
+                  setScope("all");
+                  setDateFrom(r.dateFrom);
+                  setDateTo(r.dateTo);
+                }}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                  scope === "all" && dateFrom === last30Range.dateFrom && dateTo === last30Range.dateTo
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700",
+                )}
+              >
+                30 days
               </button>
             </div>
 
@@ -226,13 +274,25 @@ export default function MyCallsPage() {
       </div>
 
       {/* Summary */}
-      <div className="bg-white border border-surface-200 rounded-xl px-4 py-3 w-fit">
-        <p className="text-xs text-gray-400 mb-1">
-          {isInteractedTab
-            ? interactedScope === "today" ? "Interacted Today" : "Leads Interacted (All Time)"
-            : scope === "today" ? "Today's Calls" : "Total Calls"}
-        </p>
-        <p className="text-xl font-bold text-primary">{total}</p>
+      <div className="flex flex-wrap gap-3">
+        <div className="bg-white border border-surface-200 rounded-xl px-4 py-3 w-fit">
+          <p className="text-xs text-gray-400 mb-1">
+            {isInteractedTab
+              ? interactedScope === "today" ? "Interacted Today" : "Leads Interacted (All Time)"
+              : scope === "today" ? "Today's Calls" : "Total Calls"}
+          </p>
+          <p className="text-xl font-bold text-primary">{total}</p>
+        </div>
+        {!isInteractedTab && (
+          <div className="bg-white border border-surface-200 rounded-xl px-4 py-3 w-fit">
+            <p className="text-xs text-gray-400 mb-1">
+              {scope === "today" ? "Today's Minutes" : "Total Minutes"}
+            </p>
+            <p className="text-xl font-bold text-primary">
+              {Math.round((callsData?.totalDurationSecs ?? 0) / 60)}m
+            </p>
+          </div>
+        )}
       </div>
 
       {isLoading && <TableSkeleton />}

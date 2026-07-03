@@ -1030,11 +1030,11 @@ export async function getMyCallsList(
     pageSize?: number;
     sortOrder?: "asc" | "desc";
   },
-): Promise<{ rows: MyCallRow[]; total: number; page: number; pageSize: number }> {
+): Promise<{ rows: MyCallRow[]; total: number; page: number; pageSize: number; totalDurationSecs: number }> {
   const { prisma, page = 1, pageSize = 20, sortOrder = "desc" } = params;
   const where = buildMyCallsWhere(params);
 
-  const [rows, total] = await Promise.all([
+  const [rows, total, durationAgg] = await Promise.all([
     prisma.interactionLog.findMany({
       where,
       select: {
@@ -1051,6 +1051,9 @@ export async function getMyCallsList(
       take: pageSize,
     }),
     prisma.interactionLog.count({ where }),
+    // Sum over ALL matching rows (not just the current page) so the
+    // "Minutes" summary card reflects the full filtered set.
+    prisma.interactionLog.aggregate({ where, _sum: { callDurationSecs: true } }),
   ]);
 
   const callRows: MyCallRow[] = rows.map((r) => ({
@@ -1066,7 +1069,7 @@ export async function getMyCallsList(
     createdAt: r.createdAt.toISOString(),
   }));
 
-  return { rows: callRows, total, page, pageSize };
+  return { rows: callRows, total, page, pageSize, totalDurationSecs: durationAgg._sum.callDurationSecs ?? 0 };
 }
 
 // ══════════════════════════════════════════════════════════════

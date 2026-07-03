@@ -42,6 +42,7 @@ export type MyCallsResponse = {
   page: number;
   pageSize: number;
   totalPages: number;
+  totalDurationSecs: number;
 };
 
 export function useMyCalls(filters: MyCallsFilters) {
