@@ -7,6 +7,7 @@ import { StatCard } from "./StatCard";
 import { FollowUpsDueToday } from "./FollowUpsDueToday";
 import { ActivityFeed } from "./ActivityFeed";
 import { PeriodSelector } from "./PeriodSelector";
+import { CustomDateRange } from "./CustomDateRange";
 import { EmployeeCallChart } from "./EmployeeCallChart";
 import { StatusBadge } from "@/components/leads/StatusBadge";
 import { Spinner } from "@/components/ui/Spinner";
@@ -33,6 +34,8 @@ dayjs.extend(relativeTime);
 export function EmployeeDashboard() {
   const { user } = useAuthStore();
   const [period, setPeriod] = useState<Period>("last30");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // Fetch MY most recent leads for the "My Recent Leads" list only — not
   // used for any stat card below (those all come from useMyDashboardOverview,
@@ -59,7 +62,7 @@ export function EmployeeDashboard() {
   // computeEmployeeStats() — the same single source of truth behind the
   // leaderboard and admin's per-employee report — so every card here
   // reconciles exactly with its /leads or /my-calls drill-through.
-  const { data: overview, isLoading: overviewLoading } = useMyDashboardOverview(period);
+  const { data: overview, isLoading: overviewLoading } = useMyDashboardOverview(period, dateFrom, dateTo);
   const stats = overview?.stats ?? null;
   const resolvedPeriod = overview?.period ?? null;
   const periodQs = resolvedPeriod
@@ -113,7 +116,17 @@ export function EmployeeDashboard() {
       {/* Period selector */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-500">Your performance overview</p>
-        <PeriodSelector value={period} onChange={setPeriod} />
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodSelector value={period} onChange={setPeriod} />
+          {period === "custom" && (
+            <CustomDateRange
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onFromChange={setDateFrom}
+              onToChange={setDateTo}
+            />
+          )}
+        </div>
       </div>
 
       {/* KPI cards — Total Leads/Overdue are always-current; everything else
