@@ -221,7 +221,7 @@ export default function ConfirmedLeadsPage() {
           <div className="space-y-4 md:hidden">
             {leads.map((lead: any) => {
               const sentAt = lead.confirmedApplication?.sentToStudentAt;
-              const sentTo = lead.confirmedApplication?.sentToStudentEmail;
+              const sentTo = lead.email;
               const courseName =
                 lead.courses?.find((c: any) => c.isPrimary)?.course?.name ??
                 "—";
@@ -352,8 +352,7 @@ export default function ConfirmedLeadsPage() {
                 <tbody className="divide-y divide-surface-100">
                   {leads.map((lead: any) => {
                     const sentAt = lead.confirmedApplication?.sentToStudentAt;
-                    const sentTo =
-                      lead.confirmedApplication?.sentToStudentEmail;
+                    const sentTo = lead.email;
 
                     return (
                       <tr key={lead.id} className="hover:bg-surface-50">
