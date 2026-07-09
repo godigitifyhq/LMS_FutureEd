@@ -349,9 +349,8 @@ export async function getEmployeePerformance(params: {
 
     // Use actual CALL interactions so this matches leaderboard / employee detail.
     const callCount = empCalls.length;
-    const callMinutes = Math.round(
-      empCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0) / 60,
-    );
+    const callSecs = empCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0);
+    const callMinutes = Math.round(callSecs / 60);
     // Any interaction counts — a lead the employee only noted or messaged
     // (never called) still counts as "interacted". Scoped to this employee's
     // own leads (assigned to them, created in this period) — not any lead
@@ -398,6 +397,7 @@ export async function getEmployeePerformance(params: {
         performanceScore,
         callCount,
         callMinutes,
+        callSecs,
         leadsInteracted,
         dailyActivity,
       },
@@ -413,11 +413,11 @@ export async function getEmployeePerformance(params: {
   // already-rounded per-employee minutes would drift from the calls report's
   // total (which rounds a single sum), off by up to ~30s per employee.
   const allCalls = allEmployeeInteractions.filter((i) => i.type === "CALL");
+  const totalCallSecs = allCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0);
   const totals = {
     totalCalls: allCalls.length,
-    totalMinutes: Math.round(
-      allCalls.reduce((sum, i) => sum + (i.callDurationSecs ?? 0), 0) / 60,
-    ),
+    totalMinutes: Math.round(totalCallSecs / 60),
+    totalDurationSecs: totalCallSecs,
     // Length of the shared interactedPairs array — getInteractedLeadIds()
     // derives the /leads drill-through's leadIds filter from the same
     // computeInteractedPairs() call, so this total and that list can never

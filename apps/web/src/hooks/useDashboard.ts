@@ -146,6 +146,7 @@ export type DailyCallStat = { date: string; callCount: number; totalMinutes: num
 export type MyCallStats = {
   callsToday: number;
   minutesToday: number;
+  secondsToday: number;
   leadsInteractedToday: number;
   confirmedToday: number;
   newLeadsToday: number;
@@ -174,6 +175,7 @@ export type MyEmployeeStats = {
   activeLeads: number;
   totalCalls: number;
   totalCallMinutes: number;
+  totalCallSecs: number;
   leadsInteracted: number;
   overdueFollowUps: number;
   confirmationRate: number;

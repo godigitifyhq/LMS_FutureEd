@@ -7,7 +7,7 @@ import { PeriodSelector } from "./PeriodSelector";
 import { CustomDateRange } from "./CustomDateRange";
 import { EmployeeActivityChart } from "./EmployeeActivityChart";
 import type { Period } from "@/hooks/useDashboard";
-import { cn } from "@/lib/utils";
+import { cn, formatDurationHMS } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Phone, Clock, Users, AlertCircle, CheckCircle2 } from "lucide-react";
 
 type DayActivity = {
@@ -30,6 +30,7 @@ type EmployeeRow = {
     followUpComplianceRate: number;
     callCount: number;
     callMinutes: number;
+    callSecs: number;
     leadsInteracted: number;
     dailyActivity: DayActivity[];
   };
@@ -97,7 +98,7 @@ function ExpandedRow({
         <div className="flex flex-wrap gap-2 mb-3">
           <StatMini icon={Users}        label="All Leads"  value={m.totalAssigned}          color="bg-gray-100 text-gray-600"    href={base} />
           <StatMini icon={Phone}        label="Calls"      value={m.callCount ?? 0}         color="bg-blue-50 text-blue-600"     href={callsBase} />
-          <StatMini icon={Clock}        label="Call Mins"  value={`${m.callMinutes ?? 0}m`} color="bg-orange-50 text-orange-500" href={callsBase} />
+          <StatMini icon={Clock}        label="Call Time"  value={formatDurationHMS(m.callSecs ?? 0)} color="bg-orange-50 text-orange-500" href={callsBase} />
           <StatMini icon={Users}        label="Interacted" value={m.leadsInteracted ?? 0}   color="bg-violet-50 text-violet-600" href={interactedHref} />
           <StatMini icon={CheckCircle2} label="Confirmed"  value={m.confirmed}              color="bg-green-50 text-green-600"   href={`${base}&status=CONFIRMED`} />
           <StatMini icon={AlertCircle}  label="Overdue"    value={m.overdueFollowUps}       color="bg-red-50 text-red-500"       href={`/leads?assignedToId=${id}&overdue=true`} />
@@ -122,7 +123,7 @@ export function EmployeePerformanceTable() {
 
   const rawData = data as {
     employees?: EmployeeRow[];
-    totals?: { totalCalls: number; totalMinutes: number; totalInteracted: number };
+    totals?: { totalCalls: number; totalMinutes: number; totalDurationSecs: number; totalInteracted: number };
     period?: { from: string; to: string };
   } | undefined;
   const employees: EmployeeRow[] = Array.isArray(rawData?.employees) ? (rawData?.employees ?? []) : [];
@@ -131,9 +132,9 @@ export function EmployeePerformanceTable() {
   // Totals come from the backend (computed from raw seconds, rounded once) so
   // they reconcile with the calls report instead of drifting from summing
   // already-rounded per-employee minutes.
-  const totalCalls      = rawData?.totals?.totalCalls      ?? 0;
-  const totalMinutes    = rawData?.totals?.totalMinutes    ?? 0;
-  const totalInteracted = rawData?.totals?.totalInteracted ?? 0;
+  const totalCalls        = rawData?.totals?.totalCalls        ?? 0;
+  const totalDurationSecs = rawData?.totals?.totalDurationSecs ?? 0;
+  const totalInteracted   = rawData?.totals?.totalInteracted   ?? 0;
 
   // Build period query strings for drill-through links
   const callsPeriodQs = period === "custom" && dateFrom && dateTo
@@ -143,7 +144,7 @@ export function EmployeePerformanceTable() {
     ? `?dateFrom=${apiPeriod.from}&dateTo=${apiPeriod.to}&showAllStatuses=true`
     : "";
 
-  const headers = ["Employee", "Leads", "Confirmed", "Lost", "Calls", "Mins", "Interacted", "Conv %"];
+  const headers = ["Employee", "Leads", "Confirmed", "Lost", "Calls", "Duration", "Interacted", "Conv %"];
 
   return (
     <div className="bg-white border border-surface-200 rounded-xl p-5">
@@ -182,8 +183,8 @@ export function EmployeePerformanceTable() {
             href={`/analytics/calls${callsPeriodQs}`}
             className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-center hover:border-orange-300 hover:bg-orange-100 transition-colors"
           >
-            <p className="text-xs text-orange-500 font-medium">Total Minutes</p>
-            <p className="text-lg font-bold text-orange-600">{totalMinutes}m</p>
+            <p className="text-xs text-orange-500 font-medium">Total Duration</p>
+            <p className="text-lg font-bold text-orange-600">{formatDurationHMS(totalDurationSecs)}</p>
           </Link>
         </div>
       )}
@@ -245,7 +246,7 @@ export function EmployeePerformanceTable() {
                       <td className="py-2.5 pr-4 text-sm font-semibold text-green-600">{emp.metrics.confirmed}</td>
                       <td className="py-2.5 pr-4 text-sm text-red-500">{emp.metrics.lost}</td>
                       <td className="py-2.5 pr-4 text-sm text-blue-600 font-medium">{emp.metrics.callCount ?? 0}</td>
-                      <td className="py-2.5 pr-4 text-sm text-orange-500 font-medium">{emp.metrics.callMinutes ?? 0}m</td>
+                      <td className="py-2.5 pr-4 text-sm text-orange-500 font-medium">{formatDurationHMS(emp.metrics.callSecs ?? 0)}</td>
                       <td className="py-2.5 pr-4 text-sm text-violet-600 font-medium">
                         <Link
                           href={`/leads?assignedToId=${emp.employee.id}&interactedByUserId=${emp.employee.id}${leadsPeriodQs ? `&${leadsPeriodQs.slice(1)}` : ""}`}

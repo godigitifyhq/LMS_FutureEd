@@ -18,7 +18,7 @@ import {
 import { InteractionType, Role } from "@lms/types";
 import { useEditInteraction } from "@/hooks/useLeadDetail";
 import { useAuthStore } from "@/store/auth";
-import { cn } from "@/lib/utils";
+import { cn, formatDurationHMS } from "@/lib/utils";
 import isToday from "dayjs/plugin/isToday";
 import isYesterday from "dayjs/plugin/isYesterday";
 
@@ -85,14 +85,6 @@ const TYPE_CONFIG: Record<
     label: "SMS",
   },
 };
-
-function formatDuration(secs: number): string {
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  if (m === 0) return `${s}s`;
-  if (s === 0) return `${m}m`;
-  return `${m}m ${s}s`;
-}
 
 function groupByDate(interactions: Interaction[]) {
   const groups: Record<string, Interaction[]> = {};
@@ -180,7 +172,7 @@ function InteractionItem({
               interaction.callDurationSecs > 0 && (
                 <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100 font-medium">
                   <Clock size={9} />
-                  {formatDuration(interaction.callDurationSecs)}
+                  {formatDurationHMS(interaction.callDurationSecs)}
                 </span>
               )}
           </div>

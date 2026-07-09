@@ -56,7 +56,7 @@ export function getDateRange(
         to:   dateTo   ? new Date(`${dateTo}T23:59:59.999+05:30`)   : istDayEnd(0),
       };
     default:
-      return { from: istDayStart(30), to: istDayEnd(0) };
+      return { from: istDayStart(0), to: istDayEnd(0) };
   }
 }
 

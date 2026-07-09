@@ -7,7 +7,7 @@ import { Trophy, TrendingUp, TrendingDown, Minus, Users, Phone, CheckCircle2, Do
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useLeaderboard } from "@/hooks/useReports";
 import type { LeaderboardRow } from "@/hooks/useReports";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDurationHMS } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
 
@@ -94,7 +94,7 @@ export default function LeaderboardPage() {
           <SummaryCard icon={CheckCircle2} label="Assigned Confirmed" value={rows.reduce((s, r) => s + r.confirmedLeads, 0)}  color="text-green-600" href={`/leads?${assignedConfirmedQuery}`} />
           <SummaryCard icon={Phone}        label="Total Calls"     value={rows.reduce((s, r) => s + r.totalCalls, 0)}      color="text-blue-600"  href={`/analytics/calls?${detailQuery}`} />
           <SummaryCard icon={CheckCircle2} label="Connected"       value={rows.reduce((s, r) => s + r.connectedCalls, 0)}  color="text-teal-600"  href={`/analytics/calls?${detailQuery}`} />
-          <SummaryCard icon={Clock}        label="Call Minutes"    value={`${rows.reduce((s, r) => s + r.totalCallMinutes, 0)}m`} color="text-orange-500" href={`/analytics/calls?${detailQuery}`} />
+          <SummaryCard icon={Clock}        label="Call Duration"   value={formatDurationHMS(rows.reduce((s, r) => s + r.totalCallSecs, 0))} color="text-orange-500" href={`/analytics/calls?${detailQuery}`} />
           <SummaryCard icon={DollarSign}   label="Revenue"         value={formatCurrency(rows.reduce((s, r) => s + r.totalRevenue, 0))} color="text-violet-600" href={`/analytics/conversions?${detailQuery}`} />
         </div>
       )}
@@ -210,7 +210,7 @@ export default function LeaderboardPage() {
                     </td>
                     <td className="px-4 py-3 text-orange-500 font-medium whitespace-nowrap">
                       <Link href={`/analytics/calls?employeeId=${row.employeeId}&${detailQuery}`} className="hover:underline">
-                        {row.totalCallMinutes}m
+                        {formatDurationHMS(row.totalCallSecs)}
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-gray-600 text-xs whitespace-nowrap">
@@ -323,7 +323,7 @@ function LeaderboardCard({ row, detailQuery }: { row: LeaderboardRow; detailQuer
 
       <div className="mt-3 pt-3 border-t border-surface-100 space-y-1">
         <p className="text-[11px] text-gray-500">
-          Talk time: <span className="font-medium text-gray-700">{row.totalCallMinutes}m</span>
+          Talk time: <span className="font-medium text-gray-700">{formatDurationHMS(row.totalCallSecs)}</span>
         </p>
         <p className="text-[11px] text-gray-500">
           Starting call: <span className="font-medium text-gray-700">{fmtReportDateTime(row.firstCallAt)}</span>

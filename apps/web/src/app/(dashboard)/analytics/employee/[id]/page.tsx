@@ -7,7 +7,7 @@ import { ArrowLeft, Phone, CheckCircle2, Users, Clock, TrendingUp, AlertCircle, 
 import Link from "next/link";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { useEmployeeDetail } from "@/hooks/useReports";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDurationHMS } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
 
@@ -30,6 +30,7 @@ type EmployeeStats = {
   connectedCalls: number;
   missedCalls: number;
   totalCallMinutes: number;
+  totalCallSecs: number;
   totalInteractions: number;
   leadsInteracted: number;
   totalRevenue: number;
@@ -147,7 +148,7 @@ export default function EmployeeDetailPage() {
             <KpiCard icon={CheckCircle2} label="Confirmed" value={`${stats.confirmedLeads} (${stats.confirmationRate}%)`} color="text-green-600" href={`${leadsBase}&status=CONFIRMED`} />
             <KpiCard icon={Phone} label="Total Calls" value={stats.totalCalls} color="text-blue-600" href={callsBase} />
             <KpiCard icon={Phone} label="Connected" value={stats.connectedCalls} color="text-green-600" href={`${callsBase}&outcome=CONNECTED`} />
-            <KpiCard icon={Clock} label="Call Mins" value={`${stats.totalCallMinutes}m`} color="text-orange-500" href={callsBase} />
+            <KpiCard icon={Clock} label="Call Duration" value={formatDurationHMS(stats.totalCallSecs)} color="text-orange-500" href={callsBase} />
             <KpiCard icon={Clock} label="Starting Call" value={fmtReportDateTime(stats.firstCallAt)} color="text-slate-600" href={callsBase} />
             <KpiCard icon={Clock} label="Last Call" value={fmtReportDateTime(stats.lastCallAt)} color="text-emerald-600" href={callsBase} />
             <KpiCard icon={TrendingUp} label="Revenue" value={formatCurrency(stats.totalRevenue)} color="text-violet-600" href={`${leadsBase}&status=CONFIRMED`} />
@@ -255,7 +256,7 @@ export default function EmployeeDetailPage() {
                           <OutcomeBadge outcome={call.outcome} />
                         </td>
                         <td className="px-4 py-2.5 text-gray-500">
-                          {call.durationSecs ? fmtDuration(call.durationSecs) : "—"}
+                          {formatDurationHMS(call.durationSecs)}
                         </td>
                         <td className="px-4 py-2.5">
                           {call.recordingUrl ? (
@@ -320,12 +321,6 @@ function OutcomeBadge({ outcome }: { outcome: string | null }) {
       {entry.label}
     </span>
   );
-}
-
-function fmtDuration(secs: number): string {
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
 function fmtReportDateTime(value: string | null): string {

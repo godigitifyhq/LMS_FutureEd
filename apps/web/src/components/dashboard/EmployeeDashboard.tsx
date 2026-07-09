@@ -17,6 +17,7 @@ import api from "@/lib/api";
 import type { Period } from "@/hooks/useDashboard";
 import { useMyCallStats, useMyDashboardOverview } from "@/hooks/useDashboard";
 import { istDateString } from "@/lib/istDate";
+import { formatDurationHMS } from "@/lib/utils";
 import type { LeadStatus } from "@lms/types";
 type Lead = {
   id: string;
@@ -81,11 +82,11 @@ export function EmployeeDashboard() {
   const overdueCount            = stats?.overdueFollowUps ?? 0;
   const conversionRate          = stats?.confirmationRate ?? 0;
   const totalCallsInPeriod      = stats?.totalCalls ?? 0;
-  const totalCallMinutesInPeriod = stats?.totalCallMinutes ?? 0;
+  const totalCallSecsInPeriod   = stats?.totalCallSecs ?? 0;
   const leadsInteractedInPeriod = stats?.leadsInteracted ?? 0;
 
   const callsToday          = callStats?.callsToday ?? 0;
-  const minutesToday        = callStats?.minutesToday ?? 0;
+  const secondsToday        = callStats?.secondsToday ?? 0;
   const leadsInteractedToday = callStats?.leadsInteractedToday ?? 0;
   const confirmedToday      = callStats?.confirmedToday ?? 0;
   const newLeadsToday       = callStats?.newLeadsToday ?? 0;
@@ -215,7 +216,7 @@ export function EmployeeDashboard() {
         />
         <StatCard
           title="Total Call Duration"
-          value={`${totalCallMinutesInPeriod}m`}
+          value={formatDurationHMS(totalCallSecsInPeriod)}
           subtitle="in period"
           icon={<History size={16} className="text-indigo-600" />}
           colorVariant="indigo"
@@ -243,7 +244,7 @@ export function EmployeeDashboard() {
               <span className="text-xs font-medium">Calls Made</span>
             </div>
             <span className="text-2xl font-bold text-blue-700">{callsToday}</span>
-            <span className="text-xs text-blue-500">{minutesToday}m talked</span>
+            <span className="text-xs text-blue-500">{formatDurationHMS(secondsToday)} talked</span>
           </Link>
           <Link
             href={interactedTodayHref}
@@ -273,10 +274,10 @@ export function EmployeeDashboard() {
           >
             <div className="flex items-center gap-1.5 text-orange-600 mb-1">
               <Timer size={12} />
-              <span className="text-xs font-medium">Call Minutes</span>
+              <span className="text-xs font-medium">Call Duration</span>
             </div>
-            <span className="text-2xl font-bold text-orange-700">{minutesToday}</span>
-            <span className="text-xs text-orange-500">min on calls</span>
+            <span className="text-2xl font-bold text-orange-700">{formatDurationHMS(secondsToday)}</span>
+            <span className="text-xs text-orange-500">time on calls</span>
           </Link>
           <Link
             href={newLeadsTodayHref}

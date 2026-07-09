@@ -18,6 +18,7 @@
 import type { PrismaClient, Prisma } from "@lms/db";
 import { getDateRange, toISTDateString } from "./helpers";
 import type { Period } from "./helpers";
+import { formatDurationHMS } from "../../utils/duration";
 
 // ── IST offset — India Standard Time is UTC+5:30.
 // Used to resolve "today", "start of day" correctly for IST.
@@ -62,6 +63,7 @@ export type EmployeeStats = {
   connectedCalls: number;   // outcome = CONNECTED (or no outcome set, backward compat)
   missedCalls: number;      // outcome != CONNECTED
   totalCallMinutes: number;
+  totalCallSecs: number;    // raw seconds — use for H:M:S display
 
   // Interactions
   totalInteractions: number; // all non-STATUS_CHANGED interactions
@@ -219,9 +221,8 @@ export async function computeEmployeeStats(params: {
       (c) => !c.callOutcome || c.callOutcome === "CONNECTED",
     ).length;
     const missedCalls    = totalCalls - connectedCalls;
-    const totalCallMinutes = Math.round(
-      empCalls.reduce((s, c) => s + (c.callDurationSecs ?? 0), 0) / 60,
-    );
+    const totalCallSecs = empCalls.reduce((s, c) => s + (c.callDurationSecs ?? 0), 0);
+    const totalCallMinutes = Math.round(totalCallSecs / 60);
     const firstCallAt = empCalls.reduce<Date | null>(
       (earliest, call) =>
         !earliest || call.createdAt < earliest ? call.createdAt : earliest,
@@ -297,6 +298,7 @@ export async function computeEmployeeStats(params: {
       connectedCalls,
       missedCalls,
       totalCallMinutes,
+      totalCallSecs,
       totalInteractions,
       leadsInteracted,
       totalRevenue,
@@ -526,7 +528,7 @@ export async function getCallReport(params: {
   branchId?: string;
   employeeId?: string;
   outcome?: string;
-}): Promise<{ rows: CallRow[]; totals: { calls: number; connectedCalls: number; totalMinutes: number }; period: { from: string; to: string } }> {
+}): Promise<{ rows: CallRow[]; totals: { calls: number; connectedCalls: number; totalMinutes: number; totalDurationSecs: number }; period: { from: string; to: string } }> {
   const { prisma, branchId, employeeId, outcome } = params;
   const { from, to } = getDateRangeIST(params.period, params.dateFrom, params.dateTo);
 
@@ -553,13 +555,6 @@ export async function getCallReport(params: {
     take: 5000, // per Q9 — max realistic rows
   });
 
-  function fmtDuration(secs: number | null): string {
-    if (!secs) return "—";
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return m > 0 ? `${m}m ${s}s` : `${s}s`;
-  }
-
   const callRows: CallRow[] = rows.map((r) => ({
     id:           r.id,
     employeeId:   r.user.id,
@@ -570,7 +565,7 @@ export async function getCallReport(params: {
     outcome:      r.callOutcome,
     direction:    r.callDirection,
     durationSecs: r.callDurationSecs,
-    durationLabel: fmtDuration(r.callDurationSecs),
+    durationLabel: formatDurationHMS(r.callDurationSecs),
     recordingUrl: r.callRecordingUrl,
     createdAt:    r.createdAt.toISOString(),
   }));
@@ -579,14 +574,15 @@ export async function getCallReport(params: {
     (r) => !r.outcome || r.outcome === "CONNECTED",
   ).length;
 
+  const totalDurationSecs = callRows.reduce((s, r) => s + (r.durationSecs ?? 0), 0);
+
   return {
     rows: callRows,
     totals: {
       calls:          callRows.length,
       connectedCalls,
-      totalMinutes:   Math.round(
-        callRows.reduce((s, r) => s + (r.durationSecs ?? 0), 0) / 60,
-      ),
+      totalMinutes:   Math.round(totalDurationSecs / 60),
+      totalDurationSecs,
     },
     period: {
       from: toISTDateString(from),
@@ -1017,13 +1013,6 @@ export type MyCallRow = {
   createdAt: string;
 };
 
-function formatDuration(secs: number | null): string {
-  if (!secs) return "—";
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return m > 0 ? `${m}m ${s}s` : `${s}s`;
-}
-
 /** Paginated call list — powers "Total Calls" / "Today's Calls" / "Total Call Duration" drill-throughs and the My Call Records section. */
 export async function getMyCallsList(
   params: MyCallsFilters & {
@@ -1066,7 +1055,7 @@ export async function getMyCallsList(
     outcome: r.callOutcome,
     direction: r.callDirection,
     durationSecs: r.callDurationSecs,
-    durationLabel: formatDuration(r.callDurationSecs),
+    durationLabel: formatDurationHMS(r.callDurationSecs),
     recordingUrl: r.callRecordingUrl,
     createdAt: r.createdAt.toISOString(),
   }));

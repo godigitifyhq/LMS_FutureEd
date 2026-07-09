@@ -8,7 +8,7 @@ import { ReportShell } from "@/components/reports/ReportShell";
 import { useCallReport } from "@/hooks/useReports";
 import { useStaffList } from "@/hooks/useLeads";
 import type { CallReportResponse, CallReportRow } from "@/hooks/useReports";
-import { cn } from "@/lib/utils";
+import { cn, formatDurationHMS } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
 
 const OUTCOME_COLORS: Record<string, string> = {
@@ -31,7 +31,7 @@ export default function CallsPage() {
   const searchParams = useSearchParams();
   const router       = useRouter();
 
-  const [period,     setPeriod]     = useState<Period>((searchParams.get("period") as Period) ?? "last30");
+  const [period,     setPeriod]     = useState<Period>((searchParams.get("period") as Period) ?? "today");
   const [dateFrom,   setDateFrom]   = useState(searchParams.get("dateFrom") ?? "");
   const [dateTo,     setDateTo]     = useState(searchParams.get("dateTo") ?? "");
   const [employeeId, setEmployeeId] = useState(searchParams.get("employeeId") ?? "");
@@ -60,6 +60,7 @@ export default function CallsPage() {
     calls: 0,
     connectedCalls: 0,
     totalMinutes: 0,
+    totalDurationSecs: 0,
   };
   const resolved = payload?.period ?? null;
 
@@ -98,7 +99,7 @@ export default function CallsPage() {
       <div className="grid grid-cols-3 gap-3">
         <SumCard label="Total Calls"    value={totals.calls          ?? 0} color="text-blue-600" />
         <SumCard label="Connected"      value={totals.connectedCalls ?? 0} color="text-green-600" />
-        <SumCard label="Total Minutes"  value={`${totals.totalMinutes ?? 0}m`} color="text-orange-500" />
+        <SumCard label="Total Duration" value={formatDurationHMS(totals.totalDurationSecs)} color="text-orange-500" />
       </div>
 
       {isLoading && <CallTableSkeleton />}

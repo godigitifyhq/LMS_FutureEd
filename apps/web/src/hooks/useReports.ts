@@ -34,6 +34,7 @@ export type LeaderboardRow = {
   totalCalls: number;
   connectedCalls: number;
   totalCallMinutes: number;
+  totalCallSecs: number;
   leadsInteracted: number;
   totalRevenue: number;
   confirmationRate: number;
@@ -65,6 +66,7 @@ export type EmployeeDetailStats = {
   connectedCalls: number;
   missedCalls: number;
   totalCallMinutes: number;
+  totalCallSecs: number;
   totalInteractions: number;
   leadsInteracted: number;
   totalRevenue: number;
@@ -129,6 +131,7 @@ export type CallReportResponse = {
     calls: number;
     connectedCalls: number;
     totalMinutes: number;
+    totalDurationSecs: number;
   };
   period: { from: string; to: string };
 };

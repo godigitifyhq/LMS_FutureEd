@@ -81,6 +81,7 @@ export async function assignLeadRoute(fastify: FastifyInstance): Promise<void> {
         newAssigneeId: assignedToId,
         newAssigneeRole: newAssignee.role as Role,
         leadStatus: lead.status,
+        actorRole: role as Role,
       });
 
       if (!reassignmentValidation.success) {

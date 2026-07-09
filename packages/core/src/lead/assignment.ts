@@ -32,6 +32,7 @@ export function validateReassignment(params: {
   newAssigneeId: string;
   newAssigneeRole: Role;
   leadStatus: string;
+  actorRole: Role;
 }): Result<{ assignedToId: string }> {
   // Cannot assign to another Sub Admin or Admin
   // Leads are worked by employees
@@ -49,8 +50,11 @@ export function validateReassignment(params: {
     };
   }
 
-  // Cannot reassign a confirmed lead
-  if (params.leadStatus === "CONFIRMED") {
+  // Confirmed leads can't be reassigned by employees, but Admin/Sub Admin
+  // may still transfer them to another employee (e.g. staff changes).
+  const actorCanOverride =
+    params.actorRole === Role.ADMIN || params.actorRole === Role.SUB_ADMIN;
+  if (params.leadStatus === "CONFIRMED" && !actorCanOverride) {
     return {
       success: false,
       error: {

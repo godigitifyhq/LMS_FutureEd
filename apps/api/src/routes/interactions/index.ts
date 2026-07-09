@@ -534,6 +534,7 @@ export async function interactionRoutes(
         data: {
           callsToday,
           minutesToday: Math.round(secondsToday / 60),
+          secondsToday,
           leadsInteractedToday,
           confirmedToday,
           newLeadsToday,

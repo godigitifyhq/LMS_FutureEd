@@ -8,7 +8,7 @@ import { useMyCalls, useMyInteractedLeads } from "@/hooks/useMyCalls";
 import type { MyCallRow, MyInteractedLeadListRow } from "@/hooks/useMyCalls";
 import { Pagination } from "@/components/ui/Pagination";
 import { StatusBadge } from "@/components/leads/StatusBadge";
-import { cn } from "@/lib/utils";
+import { cn, formatDurationHMS } from "@/lib/utils";
 import { getISTDateRange } from "@/lib/istDate";
 import type { LeadStatus } from "@lms/types";
 
@@ -289,7 +289,7 @@ export default function MyCallsPage() {
               {scope === "today" ? "Today's Minutes" : "Total Minutes"}
             </p>
             <p className="text-xl font-bold text-primary">
-              {Math.round((callsData?.totalDurationSecs ?? 0) / 60)}m
+              {formatDurationHMS(callsData?.totalDurationSecs ?? 0)}
             </p>
           </div>
         )}
