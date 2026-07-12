@@ -117,8 +117,7 @@ export type CallReportRow = {
   leadId: string;
   leadName: string;
   leadPhone: string;
-  outcome: string | null;
-  direction: string | null;
+  leadStatus: string | null;
   durationSecs: number | null;
   durationLabel: string;
   recordingUrl: string | null;

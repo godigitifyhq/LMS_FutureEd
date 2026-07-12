@@ -20,12 +20,12 @@ import { PeriodSelector } from "./PeriodSelector";
 import { useDashboardOverview } from "@/hooks/useDashboard";
 import { useUnassignedLeads } from "@/hooks/useLeads";
 import type { Period } from "@/hooks/useDashboard";
-import { istDateString } from "@/lib/istDate";
 
 type DashboardSummary = {
   totalLeadsInPeriod?: number;
   newToday?: number;
   confirmedToday?: number;
+  confirmedInPeriod?: number;
   overdueCount?: number;
   totalActiveLeads?: number;
   interestedCount?: number;
@@ -102,13 +102,13 @@ export function AdminDashboard() {
           href={`/leads?showAllStatuses=true${periodQs}`}
         />
         <StatCard
-          title="Confirmed Today"
-          value={summary?.confirmedToday ?? 0}
-          subtitle="confirmed today"
+          title="Confirmed"
+          value={summary?.confirmedInPeriod ?? 0}
+          subtitle="in period"
           icon={<CheckCircle2 size={16} className="text-green-600" />}
           colorVariant="green"
           loading={isLoading}
-          href={`/confirmed?dateFrom=${istDateString(0)}&dateTo=${istDateString(0)}`}
+          href={`/confirmed?dateFrom=${drillFrom}&dateTo=${drillTo}&dateBy=confirmedAt`}
         />
         <StatCard
           title="Pending Follow-ups"

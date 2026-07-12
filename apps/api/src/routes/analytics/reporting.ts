@@ -512,8 +512,7 @@ export type CallRow = {
   leadId: string;
   leadName: string;
   leadPhone: string;
-  outcome: string | null;
-  direction: string | null;
+  leadStatus: string | null;
   durationSecs: number | null;
   durationLabel: string; // "3m 20s"
   recordingUrl: string | null;
@@ -545,11 +544,10 @@ export async function getCallReport(params: {
       id: true,
       callDurationSecs: true,
       callOutcome: true,
-      callDirection: true,
       callRecordingUrl: true,
       createdAt: true,
       user: { select: { id: true, name: true } },
-      lead: { select: { id: true, studentName: true, phone: true } },
+      lead: { select: { id: true, studentName: true, phone: true, status: true } },
     },
     orderBy: { createdAt: "desc" },
     take: 5000, // per Q9 — max realistic rows
@@ -562,16 +560,15 @@ export async function getCallReport(params: {
     leadId:       r.lead?.id ?? "",
     leadName:     r.lead?.studentName ?? "Unknown",
     leadPhone:    r.lead?.phone ?? "—",
-    outcome:      r.callOutcome,
-    direction:    r.callDirection,
+    leadStatus:   r.lead?.status ?? null,
     durationSecs: r.callDurationSecs,
     durationLabel: formatDurationHMS(r.callDurationSecs),
     recordingUrl: r.callRecordingUrl,
     createdAt:    r.createdAt.toISOString(),
   }));
 
-  const connectedCalls = callRows.filter(
-    (r) => !r.outcome || r.outcome === "CONNECTED",
+  const connectedCalls = rows.filter(
+    (r) => !r.callOutcome || r.callOutcome === "CONNECTED",
   ).length;
 
   const totalDurationSecs = callRows.reduce((s, r) => s + (r.durationSecs ?? 0), 0);

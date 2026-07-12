@@ -12,7 +12,7 @@ import {
   Users,
   ArrowRightLeft,
 } from "lucide-react";
-import { useLeadList, useEmployeeList } from "@/hooks/useLeads";
+import { useLeadList, useAssignableUsers } from "@/hooks/useLeads";
 import { useQueryClient } from "@tanstack/react-query";
 import { LeadFilters } from "@/components/leads/LeadFilters";
 import { LeadCards } from "@/components/leads/LeadCards";
@@ -29,6 +29,11 @@ import api from "@/lib/api";
 import { extractApiError } from "@/lib/utils";
 import type { LeadFilters as Filters, LeadSummary } from "@/hooks/useLeads";
 import { cn } from "@/lib/utils";
+
+const ROLE_TAGS: Record<string, string> = {
+  ADMIN: "Admin",
+  SUB_ADMIN: "Sub Admin",
+};
 
 const DEFAULT_FILTERS: Filters = {
   page: 1,
@@ -86,7 +91,7 @@ export default function LeadsPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
 
   const { data, isLoading, isFetching, refetch } = useLeadList(filters);
-  const { data: employees } = useEmployeeList();
+  const { data: employees } = useAssignableUsers();
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -376,6 +381,11 @@ export default function LeadsPage() {
                 </div>
                 <span className="text-sm font-medium text-gray-700">
                   {emp.name}
+                  {ROLE_TAGS[emp.role] && (
+                    <span className="ml-1.5 text-xs font-normal text-gray-400">
+                      ({ROLE_TAGS[emp.role]})
+                    </span>
+                  )}
                 </span>
                 {bulkAssignee === emp.id && (
                   <span className="ml-auto text-primary text-xs">✓</span>

@@ -8,24 +8,11 @@ import { ReportShell } from "@/components/reports/ReportShell";
 import { useCallReport } from "@/hooks/useReports";
 import { useStaffList } from "@/hooks/useLeads";
 import type { CallReportResponse, CallReportRow } from "@/hooks/useReports";
+import { StatusBadge } from "@/components/leads/StatusBadge";
+import { STATUS_CONFIG } from "@/config/leadStatus";
+import type { LeadStatus } from "@lms/types";
 import { cn, formatDurationHMS } from "@/lib/utils";
 import type { Period } from "@/hooks/useDashboard";
-
-const OUTCOME_COLORS: Record<string, string> = {
-  CONNECTED:    "bg-green-50 text-green-700",
-  NO_ANSWER:    "bg-yellow-50 text-yellow-700",
-  BUSY:         "bg-orange-50 text-orange-700",
-  REJECTED:     "bg-red-50 text-red-700",
-  WRONG_NUMBER: "bg-gray-100 text-gray-600",
-};
-
-const OUTCOME_LABELS: Record<string, string> = {
-  CONNECTED:    "Connected",
-  NO_ANSWER:    "No Answer",
-  BUSY:         "Busy",
-  REJECTED:     "Rejected",
-  WRONG_NUMBER: "Wrong Number",
-};
 
 export default function CallsPage() {
   const searchParams = useSearchParams();
@@ -122,7 +109,7 @@ export default function CallsPage() {
             <table className="w-full text-sm min-w-175">
               <thead>
                 <tr className="bg-surface-50 border-b border-surface-200">
-                  {["Employee", "Lead", "Phone", "Outcome", "Direction", "Duration", "Recording", "Date"].map((h) => (
+                  {["Employee", "Lead", "Phone", "Lead Status", "Duration", "Recording", "Date"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -144,15 +131,12 @@ export default function CallsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-500">{r.leadPhone}</td>
                     <td className="px-4 py-3">
-                      {r.outcome ? (
-                        <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", OUTCOME_COLORS[r.outcome] ?? "bg-gray-100 text-gray-600")}>
-                          {OUTCOME_LABELS[r.outcome] ?? r.outcome}
-                        </span>
+                      {r.leadStatus && STATUS_CONFIG[r.leadStatus as LeadStatus] ? (
+                        <StatusBadge status={r.leadStatus as LeadStatus} size="sm" />
                       ) : (
                         <span className="text-gray-400 text-xs">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{r.direction ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{r.durationLabel}</td>
                     <td className="px-4 py-3">
                       {r.recordingUrl ? (

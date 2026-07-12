@@ -10,6 +10,12 @@ import type { LeadFilters } from "@/hooks/useLeads";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Admins",
+  SUB_ADMIN: "Sub Admins",
+  EMPLOYEE: "Employees",
+};
+
 const YEAR_START = 2017;
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from(
@@ -71,17 +77,25 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
     staleTime: 60_000,
   });
 
-  const { data: employees } = useQuery({
-    queryKey: ["users", "employees"],
+  // Counsellor filter — includes Employees, Sub Admins, and Admins so
+  // leads assigned to any staff member can be filtered on.
+  const { data: staff } = useQuery({
+    queryKey: ["users", "staff"],
     queryFn: async () => {
       const { data } = await api.get<{
-        data: { users: Array<{ id: string; name: string }> };
-      }>("/users?role=EMPLOYEE&isActive=true");
+        data: { users: Array<{ id: string; name: string; role: string }> };
+      }>("/users?isActive=true");
       return data.data.users;
     },
     enabled: isManager,
     staleTime: 5 * 60_000,
   });
+  const staffByRole = (staff ?? []).reduce<
+    Record<string, Array<{ id: string; name: string; role: string }>>
+  >((acc, member) => {
+    (acc[member.role] ??= []).push(member);
+    return acc;
+  }, {});
 
   const hasActiveFilters = Object.values(filters).some(
     (v) => v !== undefined && v !== "" && v !== 1 && v !== 20 && v !== false,
@@ -206,7 +220,7 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
           </select>
 
           {/* Assigned to — managers only */}
-          {isManager && employees && (
+          {isManager && staff && (
             <select
               value={filters.assignedToId ?? ""}
               aria-label="Filter by counsellor"
@@ -232,11 +246,17 @@ export function LeadFilters({ filters, onChange, onReset }: Props) {
             >
               <option value="">All Counsellors</option>
               <option value="unassigned">Unassigned</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
-                </option>
-              ))}
+              {(["ADMIN", "SUB_ADMIN", "EMPLOYEE"] as const).map((roleKey) =>
+                staffByRole[roleKey]?.length ? (
+                  <optgroup key={roleKey} label={ROLE_LABELS[roleKey]}>
+                    {staffByRole[roleKey].map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null,
+              )}
             </select>
           )}
 

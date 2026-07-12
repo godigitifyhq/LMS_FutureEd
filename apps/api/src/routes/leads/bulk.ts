@@ -34,17 +34,30 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
         select: { id: true, role: true, isActive: true },
       });
 
-      if (!assignee || !assignee.isActive || assignee.role !== "EMPLOYEE") {
+      if (!assignee || !assignee.isActive) {
         return reply.status(400).send({
           success: false,
           error: {
             code: "INVALID_INPUT",
-            message: "Assignee must be an active employee",
+            message: "Assignee not found or inactive",
           },
         });
       }
 
-      const { id: userId } = request.user;
+      const { id: userId, role: actorRole } = request.user;
+
+      // Admins may bulk-assign to anyone; Sub Admins only to Employees.
+      const assigneeIsManager =
+        assignee.role === Role.ADMIN || assignee.role === Role.SUB_ADMIN;
+      if (assigneeIsManager && actorRole !== Role.ADMIN) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "INVALID_ASSIGNMENT",
+            message: "Only Admins can assign leads to Admins or Sub Admins",
+          },
+        });
+      }
 
       await fastify.prisma.$transaction(async (tx) => {
         const leadsToAssign = await tx.lead.findMany({
@@ -160,7 +173,12 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
 
           await tx.lead.updateMany({
             where: { id: { in: successful } },
-            data: { status: toStatus },
+            data: {
+              status: toStatus,
+              ...(toStatus === LeadStatus.CONFIRMED
+                ? { confirmedAt: new Date(), confirmedById: userId }
+                : {}),
+            },
           });
 
           const shouldCancelFollowUpTask =

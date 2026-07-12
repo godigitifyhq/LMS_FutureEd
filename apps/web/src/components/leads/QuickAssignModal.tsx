@@ -7,8 +7,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useAssignLead, useEmployeeList } from "@/hooks/useLeads";
+import { useAssignLead, useAssignableUsers } from "@/hooks/useLeads";
 import { cn } from "@/lib/utils";
+
+const ROLE_TAGS: Record<string, string> = {
+  ADMIN: "Admin",
+  SUB_ADMIN: "Sub Admin",
+};
 
 type Props = {
   leadId: string;
@@ -27,7 +32,7 @@ export function QuickAssignModal({
 }: Props) {
   const [selectedId, setSelectedId] = useState(currentAssignee ?? "");
   const [reason, setReason] = useState("");
-  const { data: employees = [] } = useEmployeeList();
+  const { data: employees = [] } = useAssignableUsers();
   const assignLead = useAssignLead();
 
   async function handleAssign() {
@@ -74,6 +79,11 @@ export function QuickAssignModal({
                   </div>
                   <span className="text-sm font-medium text-gray-700">
                     {emp.name}
+                    {ROLE_TAGS[emp.role] && (
+                      <span className="ml-1.5 text-xs font-normal text-gray-400">
+                        ({ROLE_TAGS[emp.role]})
+                      </span>
+                    )}
                   </span>
                   {selectedId === emp.id && (
                     <span className="ml-auto text-primary text-xs">✓</span>

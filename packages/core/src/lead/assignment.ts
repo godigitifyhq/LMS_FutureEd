@@ -34,17 +34,18 @@ export function validateReassignment(params: {
   leadStatus: string;
   actorRole: Role;
 }): Result<{ assignedToId: string }> {
-  // Cannot assign to another Sub Admin or Admin
-  // Leads are worked by employees
-  if (
+  // Admins may assign leads to anyone (Admin, Sub Admin, or Employee).
+  // Sub Admins may only assign leads to Employees.
+  const targetIsManager =
     params.newAssigneeRole === Role.ADMIN ||
-    params.newAssigneeRole === Role.SUB_ADMIN
-  ) {
+    params.newAssigneeRole === Role.SUB_ADMIN;
+
+  if (targetIsManager && params.actorRole !== Role.ADMIN) {
     return {
       success: false,
       error: {
         code: "INVALID_ASSIGNMENT",
-        message: "Leads can only be assigned to employees.",
+        message: "Only Admins can assign leads to Admins or Sub Admins.",
         meta: { newAssigneeRole: params.newAssigneeRole },
       },
     };

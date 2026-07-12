@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
-import type { LeadStatus, Role } from "@lms/types";
+import { Role } from "@lms/types";
+import type { LeadStatus } from "@lms/types";
+import { useAuthStore } from "@/store/auth";
 import toast from "react-hot-toast";
 
 export type LeadSummary = {
@@ -154,6 +156,26 @@ export function useStaffList() {
         success: true;
         data: { users: Array<{ id: string; name: string; role: string }> };
       }>("/users?isActive=true");
+      return data.data.users;
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+// ── Fetch users eligible as an assign-lead target for the current actor ──
+// Admins may assign leads to Admins, Sub Admins, or Employees.
+// Sub Admins may only assign leads to Employees.
+export function useAssignableUsers() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === Role.ADMIN;
+  return useQuery({
+    queryKey: ["users", "assignable", isAdmin],
+    queryFn: async () => {
+      const qs = isAdmin ? "isActive=true" : "role=EMPLOYEE&isActive=true";
+      const { data } = await api.get<{
+        success: true;
+        data: { users: Array<{ id: string; name: string; role: string }> };
+      }>(`/users?${qs}`);
       return data.data.users;
     },
     staleTime: 5 * 60_000,
