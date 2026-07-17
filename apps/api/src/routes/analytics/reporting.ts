@@ -1002,8 +1002,7 @@ export type MyCallRow = {
   leadId: string;
   leadName: string;
   leadPhone: string;
-  outcome: string | null;
-  direction: string | null;
+  leadStatus: string;
   durationSecs: number | null;
   durationLabel: string;
   recordingUrl: string | null;
@@ -1028,11 +1027,9 @@ export async function getMyCallsList(
       select: {
         id: true,
         callDurationSecs: true,
-        callOutcome: true,
-        callDirection: true,
         callRecordingUrl: true,
         createdAt: true,
-        lead: { select: { id: true, studentName: true, phone: true } },
+        lead: { select: { id: true, studentName: true, phone: true, status: true } },
       },
       orderBy: { createdAt: sortOrder },
       skip: (page - 1) * pageSize,
@@ -1049,8 +1046,7 @@ export async function getMyCallsList(
     leadId: r.lead.id,
     leadName: r.lead.studentName,
     leadPhone: r.lead.phone,
-    outcome: r.callOutcome,
-    direction: r.callDirection,
+    leadStatus: r.lead.status,
     durationSecs: r.callDurationSecs,
     durationLabel: formatDurationHMS(r.callDurationSecs),
     recordingUrl: r.callRecordingUrl,

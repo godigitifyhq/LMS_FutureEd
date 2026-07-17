@@ -39,7 +39,7 @@ export default function ConfirmedLeadsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [year, setYear] = useState("");
-  const [period, setPeriod] = useState<ConfirmedPeriod>("all");
+  const [period, setPeriod] = useState<ConfirmedPeriod>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
@@ -64,19 +64,19 @@ export default function ConfirmedLeadsPage() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // Resolve the active period into concrete dateFrom/dateTo strings.
-  // A specific period always takes priority over the coarser Year filter.
+  // Resolve the active period into concrete dateFrom/dateTo strings. The Year
+  // filter is NOT a date range — it matches the admission year in the file
+  // number (see admissionYear below) — so the two stay mutually exclusive in
+  // the UI and a year selection contributes no date bounds here.
   const { dateFrom, dateTo } =
     period === "all"
-      ? year
-        ? { dateFrom: `${year}-01-01`, dateTo: `${year}-12-31` }
-        : { dateFrom: "", dateTo: "" }
+      ? { dateFrom: "", dateTo: "" }
       : period === "custom"
         ? { dateFrom: customFrom, dateTo: customTo }
         : getISTDateRange(period as QuickPeriod);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["confirmed-leads", page, search, dateFrom, dateTo],
+    queryKey: ["confirmed-leads", page, search, dateFrom, dateTo, year],
     queryFn: async () => {
       const params = new URLSearchParams({
         status: "CONFIRMED",
@@ -89,6 +89,9 @@ export default function ConfirmedLeadsPage() {
       // This page's date filter always means "confirmed in this window" —
       // the backend defaults date filters to createdAt otherwise.
       if (dateFrom || dateTo) params.set("dateBy", "confirmedAt");
+      // Admission year lives in the file number ("20/2020" → 2020), which is
+      // what an admission's year actually means here — not confirmedAt.
+      if (year) params.set("admissionYear", year);
       const { data } = await api.get(`/leads?${params.toString()}`);
       return data.data as {
         leads: any[];

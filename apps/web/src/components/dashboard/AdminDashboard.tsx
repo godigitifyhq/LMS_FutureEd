@@ -38,7 +38,7 @@ type DashboardData = {
 };
 
 export function AdminDashboard() {
-  const [period, setPeriod] = useState<Period>("last30");
+  const [period, setPeriod] = useState<Period>("today");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { data, isLoading } = useDashboardOverview(period, undefined, dateFrom, dateTo);

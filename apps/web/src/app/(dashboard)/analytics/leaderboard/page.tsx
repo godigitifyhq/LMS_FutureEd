@@ -16,7 +16,7 @@ export default function LeaderboardPage() {
   const router       = useRouter();
 
   const [period, setPeriod] = useState<Period>(
-    (searchParams.get("period") as Period) ?? "last30",
+    (searchParams.get("period") as Period) ?? "today",
   );
   const [dateFrom, setDateFrom] = useState(searchParams.get("dateFrom") ?? "");
   const [dateTo,   setDateTo]   = useState(searchParams.get("dateTo")   ?? "");

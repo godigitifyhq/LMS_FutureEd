@@ -23,7 +23,7 @@ const CHART_COLORS = [
 ];
 
 export function LeadSourcesChart() {
-  const [period, setPeriod] = useState<Period>("last30");
+  const [period, setPeriod] = useState<Period>("today");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { data, isLoading } = useSourceReport(period, dateFrom, dateTo);

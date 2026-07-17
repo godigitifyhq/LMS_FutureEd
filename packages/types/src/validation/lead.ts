@@ -150,6 +150,9 @@ export const LeadListQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
   dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format").optional(),
   dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format").optional(),
+  // Admission year — matches the year segment of the file number (e.g. 20/2020),
+  // not any timestamp. See buildLeadWhereClause.
+  admissionYear: z.string().regex(/^\d{4}$/, "Use a 4-digit year").optional(),
   sortBy: z
     .enum(["createdAt", "studentName", "status", "nextFollowUpAt"])
     .default("createdAt"),

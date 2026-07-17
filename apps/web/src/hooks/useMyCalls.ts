@@ -19,8 +19,7 @@ export type MyCallRow = {
   leadId: string;
   leadName: string;
   leadPhone: string;
-  outcome: string | null;
-  direction: string | null;
+  leadStatus: string;
   durationSecs: number | null;
   durationLabel: string;
   recordingUrl: string | null;

@@ -61,6 +61,7 @@ export async function leadListRoute(fastify: FastifyInstance): Promise<void> {
       if (query.search) filters.search = query.search;
       if (query.dateFrom) filters.dateFrom = query.dateFrom;
       if (query.dateTo) filters.dateTo = query.dateTo;
+      if (query.admissionYear) filters.admissionYear = query.admissionYear;
       if (role !== "EMPLOYEE" && effectiveBranchId)
         filters.branchId = effectiveBranchId;
       if (query.overdue) filters.overdue = true;

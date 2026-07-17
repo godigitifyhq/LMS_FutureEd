@@ -107,6 +107,12 @@ export function buildLeadWhereClause(params: {
     // metric used by the leaderboard/employee-detail reports, whose drill-throughs
     // must filter the same way to reconcile with the number they display.
     dateBy?: 'createdAt' | 'confirmedAt'
+    // Admission year (YYYY) — matched against the year segment of the confirmed
+    // application's file number ("20/2020" → 2020), which is the year the
+    // admission belongs to. Deliberately not a date filter: a file number is
+    // assigned per branch per admission year and can be issued in a different
+    // calendar year than confirmedAt/createdAt.
+    admissionYear?: string
     leadIds?: string[]          // restrict to a precomputed set of lead IDs — used by
                                  // the "interacted by owner" drill-through (see leads/list.ts)
   }
@@ -186,6 +192,21 @@ export function buildLeadWhereClause(params: {
 
   if (filters.courseId) {
     andClauses.push({ courses: { some: { courseId: filters.courseId } } })
+  }
+
+  // ── Admission year (file number "20/2020" → 2020) ──
+  // Matches the trailing year rather than the exact "/YYYY" suffix: some file
+  // numbers were entered with a space after the slash ("81/ 2026"), and those
+  // belong to that year just the same. Every file number follows <seq>/<year>,
+  // so a trailing-year match can't collide with the sequence part.
+  // Leads with no file number can't belong to an admission year, so they drop
+  // out of the result set entirely — that's intended.
+  if (filters.admissionYear) {
+    andClauses.push({
+      confirmedApplication: {
+        fileNumber: { endsWith: filters.admissionYear },
+      },
+    })
   }
 
   // ── Interaction filters ──

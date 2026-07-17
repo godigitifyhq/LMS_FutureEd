@@ -11,7 +11,7 @@ import dayjs from "dayjs";
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 export function TrendChart() {
-  const [period, setPeriod] = useState<Period>("last30");
+  const [period, setPeriod] = useState<Period>("today");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const { data, isLoading } = useTrend(period, dateFrom, dateTo);

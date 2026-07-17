@@ -7,28 +7,23 @@ import { Play, Phone, Search, Users } from "lucide-react";
 import { useMyCalls, useMyInteractedLeads } from "@/hooks/useMyCalls";
 import type { MyCallRow, MyInteractedLeadListRow } from "@/hooks/useMyCalls";
 import { Pagination } from "@/components/ui/Pagination";
+import { CustomDateRange } from "@/components/dashboard/CustomDateRange";
 import { StatusBadge } from "@/components/leads/StatusBadge";
 import { cn, formatDurationHMS } from "@/lib/utils";
 import { getISTDateRange } from "@/lib/istDate";
 import type { LeadStatus } from "@lms/types";
 
-const OUTCOME_COLORS: Record<string, string> = {
-  CONNECTED:    "bg-green-50 text-green-700",
-  NO_ANSWER:    "bg-yellow-50 text-yellow-700",
-  BUSY:         "bg-orange-50 text-orange-700",
-  REJECTED:     "bg-red-50 text-red-700",
-  WRONG_NUMBER: "bg-gray-100 text-gray-600",
-};
-
-const OUTCOME_LABELS: Record<string, string> = {
-  CONNECTED:    "Connected",
-  NO_ANSWER:    "No Answer",
-  BUSY:         "Busy",
-  REJECTED:     "Rejected",
-  WRONG_NUMBER: "Wrong Number",
-};
-
 type Tab = "calls" | "interacted";
+
+type CallPeriod = "all" | "today" | "yesterday" | "last30" | "custom";
+
+const CALL_PERIOD_OPTIONS: Array<{ value: CallPeriod; label: string }> = [
+  { value: "all", label: "All Time" },
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "last30", label: "30 days" },
+  { value: "custom", label: "Custom" },
+];
 
 export default function MyCallsPage() {
   const searchParams = useSearchParams();
@@ -37,21 +32,36 @@ export default function MyCallsPage() {
   const [tab, setTab] = useState<Tab>(
     searchParams.get("tab") === "interacted" ? "interacted" : "calls",
   );
-  const [scope, setScope] = useState<"all" | "today">(
-    searchParams.get("scope") === "today" ? "today" : "all",
-  );
+  // Defaults to "today". Dashboard cards deep-link with ?scope=all|today; an
+  // explicit ?period wins over both.
+  const [callPeriod, setCallPeriod] = useState<CallPeriod>(() => {
+    const period = searchParams.get("period");
+    if (period && CALL_PERIOD_OPTIONS.some((o) => o.value === period)) {
+      return period as CallPeriod;
+    }
+    if (searchParams.get("scope") === "all") return "all";
+    if (searchParams.get("dateFrom") ?? searchParams.get("dateTo")) return "custom";
+    return "today";
+  });
   // Interacted tab defaults to "today" — it backs the Today's Report tile
   const [interactedScope, setInteractedScope] = useState<"all" | "today">(
     searchParams.get("scope") === "all" ? "all" : "today",
   );
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
-  const [dateFrom, setDateFrom] = useState(searchParams.get("dateFrom") ?? "");
-  const [dateTo, setDateTo] = useState(searchParams.get("dateTo") ?? "");
+  const [customFrom, setCustomFrom] = useState(searchParams.get("dateFrom") ?? "");
+  const [customTo, setCustomTo] = useState(searchParams.get("dateTo") ?? "");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  const yesterdayRange = getISTDateRange("yesterday");
-  const last30Range = getISTDateRange("last30");
+  // Resolve the active period into what the API takes: scope="today" pins the
+  // range to the current IST day server-side, everything else is an explicit range.
+  const scope: "all" | "today" = callPeriod === "today" ? "today" : "all";
+  const { dateFrom, dateTo } =
+    callPeriod === "custom"
+      ? { dateFrom: customFrom, dateTo: customTo }
+      : callPeriod === "yesterday" || callPeriod === "last30"
+        ? getISTDateRange(callPeriod)
+        : { dateFrom: "", dateTo: "" };
 
   // Debounce search input so we don't refetch on every keystroke
   const [debouncedSearch, setDebouncedSearch] = useState(search);
@@ -62,7 +72,7 @@ export default function MyCallsPage() {
 
   // Reset to page 1 whenever a filter changes — adjusted during render
   // (not in an effect) per https://react.dev/learn/you-might-not-need-an-effect
-  const filterKey = `${tab}|${scope}|${interactedScope}|${debouncedSearch}|${dateFrom}|${dateTo}`;
+  const filterKey = `${tab}|${callPeriod}|${interactedScope}|${debouncedSearch}|${dateFrom}|${dateTo}`;
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
   if (filterKey !== prevFilterKey) {
     setPrevFilterKey(filterKey);
@@ -73,13 +83,15 @@ export default function MyCallsPage() {
   useEffect(() => {
     const p = new URLSearchParams();
     if (tab !== "calls") p.set("tab", tab);
-    if (tab === "calls" && scope === "today") p.set("scope", "today");
+    if (tab === "calls") p.set("period", callPeriod);
     if (tab === "interacted" && interactedScope === "all") p.set("scope", "all");
     if (debouncedSearch) p.set("search", debouncedSearch);
-    if (dateFrom) p.set("dateFrom", dateFrom);
-    if (dateTo) p.set("dateTo", dateTo);
+    if (tab === "calls" && callPeriod === "custom") {
+      if (customFrom) p.set("dateFrom", customFrom);
+      if (customTo) p.set("dateTo", customTo);
+    }
     router.replace(`/my-calls?${p.toString()}`, { scroll: false });
-  }, [tab, scope, interactedScope, debouncedSearch, dateFrom, dateTo, router]);
+  }, [tab, callPeriod, interactedScope, debouncedSearch, customFrom, customTo, router]);
 
   const callsQuery = useMyCalls({
     page,
@@ -159,90 +171,30 @@ export default function MyCallsPage() {
         {tab === "calls" && (
           <>
             <div className="flex items-center bg-surface-100 rounded-lg p-0.5 gap-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setScope("all");
-                  setDateFrom("");
-                  setDateTo("");
-                }}
-                className={cn(
-                  "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                  scope === "all" && !dateFrom && !dateTo
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700",
-                )}
-              >
-                All Time
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setScope("today");
-                  setDateFrom("");
-                  setDateTo("");
-                }}
-                className={cn(
-                  "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                  scope === "today" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
-                )}
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const r = getISTDateRange("yesterday");
-                  setScope("all");
-                  setDateFrom(r.dateFrom);
-                  setDateTo(r.dateTo);
-                }}
-                className={cn(
-                  "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                  scope === "all" && dateFrom === yesterdayRange.dateFrom && dateTo === yesterdayRange.dateTo
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700",
-                )}
-              >
-                Yesterday
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const r = getISTDateRange("last30");
-                  setScope("all");
-                  setDateFrom(r.dateFrom);
-                  setDateTo(r.dateTo);
-                }}
-                className={cn(
-                  "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                  scope === "all" && dateFrom === last30Range.dateFrom && dateTo === last30Range.dateTo
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700",
-                )}
-              >
-                30 days
-              </button>
+              {CALL_PERIOD_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setCallPeriod(opt.value)}
+                  className={cn(
+                    "px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                    callPeriod === opt.value
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
 
-            {scope === "all" && (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="border border-surface-200 rounded-lg px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
-                  aria-label="From date"
-                />
-                <span className="text-xs text-gray-400">to</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="border border-surface-200 rounded-lg px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-primary"
-                  aria-label="To date"
-                />
-              </div>
+            {callPeriod === "custom" && (
+              <CustomDateRange
+                dateFrom={customFrom}
+                dateTo={customTo}
+                onFromChange={setCustomFrom}
+                onToChange={setCustomTo}
+              />
             )}
           </>
         )}
@@ -279,14 +231,14 @@ export default function MyCallsPage() {
           <p className="text-xs text-gray-400 mb-1">
             {isInteractedTab
               ? interactedScope === "today" ? "Interacted Today" : "Leads Interacted (All Time)"
-              : scope === "today" ? "Today's Calls" : "Total Calls"}
+              : callPeriod === "today" ? "Today's Calls" : "Total Calls"}
           </p>
           <p className="text-xl font-bold text-primary">{total}</p>
         </div>
         {!isInteractedTab && (
           <div className="bg-white border border-surface-200 rounded-xl px-4 py-3 w-fit">
             <p className="text-xs text-gray-400 mb-1">
-              {scope === "today" ? "Today's Minutes" : "Total Minutes"}
+              {callPeriod === "today" ? "Today's Minutes" : "Total Minutes"}
             </p>
             <p className="text-xl font-bold text-primary">
               {formatDurationHMS(callsData?.totalDurationSecs ?? 0)}
@@ -350,10 +302,10 @@ export default function MyCallsPage() {
       {!isLoading && !isError && !isInteractedTab && callRows.length > 0 && (
         <div className="bg-white border border-surface-200 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-175">
+            <table className="w-full text-sm min-w-150">
               <thead>
                 <tr className="bg-surface-50 border-b border-surface-200">
-                  {["Lead", "Phone", "Outcome", "Direction", "Duration", "Recording", "Date"].map((h) => (
+                  {["Lead", "Phone", "Status", "Duration", "Recording", "Date"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -370,15 +322,8 @@ export default function MyCallsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-500">{r.leadPhone}</td>
                     <td className="px-4 py-3">
-                      {r.outcome ? (
-                        <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", OUTCOME_COLORS[r.outcome] ?? "bg-gray-100 text-gray-600")}>
-                          {OUTCOME_LABELS[r.outcome] ?? r.outcome}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">—</span>
-                      )}
+                      <StatusBadge status={r.leadStatus as LeadStatus} size="sm" />
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{r.direction ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-600">{r.durationLabel}</td>
                     <td className="px-4 py-3">
                       {r.recordingUrl ? (
