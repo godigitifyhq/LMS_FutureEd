@@ -393,6 +393,7 @@ export async function campaignRoutes(fastify: FastifyInstance): Promise<void> {
             data: changed.map((p) => ({
               leadId: p.leadId,
               assignedById: actorId,
+              assignedFromId: leadById.get(p.leadId)!.assignedToId,
               assignedToId: p.assignedToId,
               reason: reason ?? `Campaign: ${campaign.name}`,
             })),

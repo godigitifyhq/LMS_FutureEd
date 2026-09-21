@@ -52,6 +52,7 @@ export async function assignLeadRoute(fastify: FastifyInstance): Promise<void> {
             studentName: true,
             branchId: true,
             nextFollowUpAt: true,
+            assignedToId: true,
           },
         }),
         fastify.prisma.user.findUnique({
@@ -110,6 +111,7 @@ export async function assignLeadRoute(fastify: FastifyInstance): Promise<void> {
           data: {
             leadId: id,
             assignedById: userId,
+            assignedFromId: lead.assignedToId,
             assignedToId,
             reason: reason ?? null,
           },
@@ -120,6 +122,7 @@ export async function assignLeadRoute(fastify: FastifyInstance): Promise<void> {
             leadId: id,
             userId,
             action: "LEAD_ASSIGNED",
+            oldValue: { assignedToId: lead.assignedToId },
             newValue: { assignedToId, reason },
           },
         });

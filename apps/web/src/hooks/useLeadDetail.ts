@@ -134,6 +134,8 @@ export function useAssignLeadDetail(leadId: string) {
     onSuccess: () => {
       toast.success("Lead assigned");
       void qc.invalidateQueries({ queryKey: ["lead", leadId] });
+      // The transfer shows up in the activity timeline
+      void qc.invalidateQueries({ queryKey: ["interactions", leadId] });
     },
     onError: () => toast.error("Failed to assign"),
   });

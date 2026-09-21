@@ -70,6 +70,7 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
             studentName: true,
             branchId: true,
             nextFollowUpAt: true,
+            assignedToId: true,
           },
         });
 
@@ -92,10 +93,13 @@ export async function bulkLeadRoutes(fastify: FastifyInstance): Promise<void> {
           });
         }
 
+        // History rows only for leads that were actually moved (locked
+        // CONFIRMED/DUPLICATE leads are skipped by the updateMany above).
         await tx.assignmentHistory.createMany({
-          data: leadIds.map((leadId) => ({
-            leadId,
+          data: leadsToAssign.map((lead) => ({
+            leadId: lead.id,
             assignedById: userId,
+            assignedFromId: lead.assignedToId,
             assignedToId,
             reason: reason ?? "Bulk assignment",
           })),

@@ -28,3 +28,15 @@ export type InteractionLog = {
   createdAt: Date
   editHistory: InteractionLogEdit[]
 }
+
+// A reassignment, as shown in the lead timeline. Not an InteractionLog row —
+// it comes from AssignmentHistory. `from` is null when the lead was
+// unassigned (or the row predates the assignedFromId column).
+export type LeadAssignmentEvent = {
+  id: string
+  reason: string | null
+  createdAt: Date
+  assignedBy: { id: string; name: string }
+  assignedFrom: { id: string; name: string } | null
+  assignedTo: { id: string; name: string } | null
+}

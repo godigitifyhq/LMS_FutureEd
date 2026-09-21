@@ -97,9 +97,10 @@ export function useAssignLead() {
         reason: params.reason,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, vars) => {
       toast.success("Lead assigned successfully");
       void qc.invalidateQueries({ queryKey: ["leads"] });
+      void qc.invalidateQueries({ queryKey: ["interactions", vars.leadId] });
     },
     onError: () => toast.error("Failed to assign lead"),
   });

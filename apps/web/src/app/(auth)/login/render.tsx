@@ -16,7 +16,6 @@ import {
   BellRing,
   Upload,
 } from "lucide-react";
-import toast from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────
@@ -231,28 +230,6 @@ export function LoginView({
               <span className="text-gray-800">Terms of Service</span> and{" "}
               <span className="text-gray-800">Privacy Policy</span>
             </p>
-
-            <div className="flex items-center gap-3 my-6">
-              <div className="flex-1 h-px bg-surface-200" />
-              <span className="text-sm text-gray-500">or</span>
-              <div className="flex-1 h-px bg-surface-200" />
-            </div>
-
-            <div className="text-center">
-              <p className="text-sm text-gray-500 mb-3">New to Future Education?</p>
-              <button
-                type="button"
-                onClick={() =>
-                  toast.info({
-                    title: "Accounts are created by your administrator",
-                    message: "Ask your branch admin to add you as an employee.",
-                  })
-                }
-                className="px-6 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary-800 transition-colors"
-              >
-                Request access
-              </button>
-            </div>
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-6">

@@ -132,6 +132,8 @@ model User {
   interactions     InteractionLog[]
   interactionEdits InteractionLogEdit[]
   assignmentsMade  AssignmentHistory[] @relation("AssignedBy")
+  assignmentsReceived AssignmentHistory[] @relation("AssignmentTo")
+  assignmentsHandedOff AssignmentHistory[] @relation("AssignmentFrom")
   auditLogs        AuditLog[]
   tasksAssigned    Task[]              @relation("TaskAssignedTo")
   tasksCreated     Task[]              @relation("TaskCreatedBy")
@@ -407,17 +409,23 @@ model InteractionLogEdit {
 // ASSIGNMENT HISTORY
 // Every reassignment permanently logged.
 // Only SUB_ADMIN and ADMIN can reassign.
+// assignedFrom is the previous owner (null = was unassigned, or a row
+// written before this column existed) — it's what lets the lead timeline
+// say "transferred from A to B" instead of just "assigned to B".
 // ─────────────────────────────────────────
 
 model AssignmentHistory {
-  id           String   @id @default(cuid())
-  leadId       String
-  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  assignedById String
-  assignedBy   User     @relation("AssignedBy", fields: [assignedById], references: [id])
-  assignedToId String?
-  reason       String?
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  leadId         String
+  lead           Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedById   String
+  assignedBy     User     @relation("AssignedBy", fields: [assignedById], references: [id])
+  assignedToId   String?
+  assignedTo     User?    @relation("AssignmentTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedFromId String?
+  assignedFrom   User?    @relation("AssignmentFrom", fields: [assignedFromId], references: [id], onDelete: SetNull)
+  reason         String?
+  createdAt      DateTime @default(now())
 
   @@index([leadId])
   @@index([assignedById])

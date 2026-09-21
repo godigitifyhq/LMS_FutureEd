@@ -95,7 +95,7 @@ export async function interactionRoutes(
         where["type"] = query.type;
       }
 
-      const [interactions, total] = await Promise.all([
+      const [interactions, total, assignments] = await Promise.all([
         fastify.prisma.interactionLog.findMany({
           where,
           select: {
@@ -130,11 +130,28 @@ export async function interactionRoutes(
           take: pageSize,
         }),
         fastify.prisma.interactionLog.count({ where }),
+        // Lead transfers live in AssignmentHistory, not InteractionLog, so
+        // they never skew interaction counts. The timeline merges them in.
+        // Only on the unfiltered feed — a type filter means "just CALLs" etc.
+        query.type
+          ? Promise.resolve([])
+          : fastify.prisma.assignmentHistory.findMany({
+              where: { leadId },
+              select: {
+                id: true,
+                reason: true,
+                createdAt: true,
+                assignedBy: { select: { id: true, name: true } },
+                assignedFrom: { select: { id: true, name: true } },
+                assignedTo: { select: { id: true, name: true } },
+              },
+              orderBy: { createdAt: "desc" },
+            }),
       ]);
 
       return reply.status(200).send({
         success: true,
-        data: { interactions, total, page, pageSize },
+        data: { interactions, assignments, total, page, pageSize },
       });
     },
   );

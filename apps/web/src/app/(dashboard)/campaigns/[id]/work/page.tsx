@@ -345,7 +345,7 @@ export default function CampaignWorkPage() {
                   <AddInteractionForm leadId={lead.id} />
                   <div className="bg-white border border-surface-200 rounded-xl p-5">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-5">Activity Timeline</p>
-                    <InteractionTimeline interactions={interactionData?.interactions ?? []} leadId={lead.id} remarks={lead.remarks} />
+                    <InteractionTimeline interactions={interactionData?.interactions ?? []} assignments={interactionData?.assignments ?? []} leadId={lead.id} remarks={lead.remarks} />
                   </div>
                 </div>
                 <div>

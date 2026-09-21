@@ -238,6 +238,7 @@ export default function LeadDetailPage() {
               </p>
               <InteractionTimeline
                 interactions={interactionData?.interactions ?? []}
+                assignments={interactionData?.assignments ?? []}
                 leadId={id}
                 remarks={lead.remarks}
               />

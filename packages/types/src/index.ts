@@ -10,6 +10,7 @@ export type { Lead, LeadSummary, LeadCourse } from "./entities/lead";
 export type {
   InteractionLog,
   InteractionLogEdit,
+  LeadAssignmentEvent,
 } from "./entities/interaction";
 export type {
   ConfirmedApplication,

@@ -14,6 +14,7 @@ import {
   AlertCircle,
   StickyNote,
   Clock,
+  UserCheck,
 } from "lucide-react";
 import { InteractionType, Role } from "@lms/types";
 import { useEditInteraction } from "@/hooks/useLeadDetail";
@@ -47,8 +48,24 @@ type Interaction = {
   }>;
 };
 
+// A reassignment from AssignmentHistory — merged into the same timeline as
+// interactions but rendered as its own entry kind.
+type Assignment = {
+  id: string;
+  reason: string | null;
+  createdAt: Date | string;
+  assignedBy: { id: string; name: string };
+  assignedFrom: { id: string; name: string } | null;
+  assignedTo: { id: string; name: string } | null;
+};
+
+type TimelineEntry =
+  | { kind: "interaction"; id: string; createdAt: Date | string; data: Interaction }
+  | { kind: "assignment"; id: string; createdAt: Date | string; data: Assignment };
+
 type Props = {
   interactions: Interaction[];
+  assignments?: Assignment[];
   leadId: string;
   remarks?: string | null;
 };
@@ -86,9 +103,9 @@ const TYPE_CONFIG: Record<
   },
 };
 
-function groupByDate(interactions: Interaction[]) {
-  const groups: Record<string, Interaction[]> = {};
-  for (const item of interactions) {
+function groupByDate(entries: TimelineEntry[]) {
+  const groups: Record<string, TimelineEntry[]> = {};
+  for (const item of entries) {
     const date = dayjs(item.createdAt);
     let key: string;
     if (date.isToday()) key = "Today";
@@ -112,6 +129,66 @@ function AudioPlayer({ url }: { url: string }) {
         className="w-full h-8"
         title="Call recording"
       />
+    </div>
+  );
+}
+
+function PersonChip({ name, highlight }: { name: string; highlight?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "text-xs px-2 py-0.5 rounded",
+        highlight ? "bg-primary-50 text-primary font-medium" : "bg-gray-100 text-gray-600",
+      )}
+    >
+      {name}
+    </span>
+  );
+}
+
+// "Lead transfer from A to B" — from AssignmentHistory. Read-only: there's
+// no note to edit, and reassignments are never deleted.
+function AssignmentItem({ assignment }: { assignment: Assignment }) {
+  const from = assignment.assignedFrom;
+  const to = assignment.assignedTo;
+  const isTransfer = !!from && !!to && from.id !== to.id;
+
+  return (
+    <div className="flex gap-3">
+      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-indigo-100 text-indigo-600">
+        <UserCheck size={14} />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs font-semibold text-gray-700">{assignment.assignedBy.name}</span>
+            <span className="text-xs text-gray-400">Lead Assigned</span>
+          </div>
+          <span
+            className="text-xs text-gray-400 shrink-0"
+            title={dayjs(assignment.createdAt).format("D MMM YYYY, h:mm A")}
+          >
+            {dayjs(assignment.createdAt).fromNow()}
+          </span>
+        </div>
+
+        {/* "assigned to B from A" — the new owner leads, previous owner trails */}
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap text-xs text-gray-500">
+          <span>to</span>
+          <PersonChip name={to?.name ?? "Unassigned"} highlight={!!to} />
+          {isTransfer && (
+            <>
+              <span>from</span>
+              <PersonChip name={from.name} />
+            </>
+          )}
+        </div>
+
+        {assignment.reason && (
+          <p className="text-sm text-gray-600 mt-1 leading-relaxed">{assignment.reason}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -292,10 +369,14 @@ function InteractionItem({
   );
 }
 
-export function InteractionTimeline({ interactions, leadId, remarks }: Props) {
-  const grouped = groupByDate(interactions);
+export function InteractionTimeline({ interactions, assignments = [], leadId, remarks }: Props) {
+  const entries: TimelineEntry[] = [
+    ...interactions.map((i): TimelineEntry => ({ kind: "interaction", id: `i-${i.id}`, createdAt: i.createdAt, data: i })),
+    ...assignments.map((a): TimelineEntry => ({ kind: "assignment", id: `a-${a.id}`, createdAt: a.createdAt, data: a })),
+  ].sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf());
+  const grouped = groupByDate(entries);
 
-  if (interactions.length === 0 && !remarks) {
+  if (entries.length === 0 && !remarks) {
     return (
       <div className="text-center py-10">
         <MessageSquare size={28} className="text-surface-300 mx-auto mb-2" />
@@ -333,13 +414,17 @@ export function InteractionTimeline({ interactions, leadId, remarks }: Props) {
 
           {/* Items */}
           <div className="space-y-4">
-            {items.map((item) => (
-              <InteractionItem
-                key={item.id}
-                interaction={item}
-                leadId={leadId}
-              />
-            ))}
+            {items.map((item) =>
+              item.kind === "assignment" ? (
+                <AssignmentItem key={item.id} assignment={item.data} />
+              ) : (
+                <InteractionItem
+                  key={item.id}
+                  interaction={item.data}
+                  leadId={leadId}
+                />
+              ),
+            )}
           </div>
         </div>
       ))}

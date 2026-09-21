@@ -1,5 +1,5 @@
 import type { Lead, LeadSummary } from "../entities/lead";
-import type { InteractionLog } from "../entities/interaction";
+import type { InteractionLog, LeadAssignmentEvent } from "../entities/interaction";
 import type { User, PublicUser } from "../entities/user";
 import type { ConfirmedApplication } from "../entities/confirmed";
 import type { Branch } from "../entities/branch";
@@ -38,6 +38,7 @@ export type LeadDetailResponse = ApiResponse<Lead>;
 
 export type LeadInteractionsResponse = ApiResponse<{
   interactions: InteractionLog[];
+  assignments: LeadAssignmentEvent[];
 }>;
 
 // Confirmed
