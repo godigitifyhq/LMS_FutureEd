@@ -78,8 +78,9 @@ export function matchPreset(range: DateRange): DatePreset {
   return "custom";
 }
 
-export function formatRange(range: DateRange): string {
-  const preset = matchPreset(range);
+// `preset` can be passed in when the caller knows better than matchPreset —
+// e.g. the chip is in Custom mode but the dates happen to equal a preset.
+export function formatRange(range: DateRange, preset: DatePreset = matchPreset(range)): string {
   if (preset !== "custom") return DATE_PRESETS.find((p) => p.value === preset)!.label;
   const f = (s?: string) => (s ? s.split("-").reverse().join("/") : "…");
   return `${f(range.dateFrom)} – ${f(range.dateTo)}`;
