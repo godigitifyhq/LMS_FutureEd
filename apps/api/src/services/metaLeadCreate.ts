@@ -30,7 +30,24 @@ export type CreateMetaLeadInput = {
   // Lead Form specific
   metaLeadgenId?: string;
   metaAdName?: string;
+  // Website enquiry specific
+  isFromWebsite?: boolean;
+  sourceOther?: string;
+  websiteCourse?: string;
+  websitePageUrl?: string;
+  websiteUtm?: string;
 };
+
+// Channel labels used in notes, audit logs and notification job names
+function channelOf(data: CreateMetaLeadInput) {
+  if (data.isFromWhatsApp) {
+    return { label: "WhatsApp", audit: "whatsapp", job: "whatsapp-lead-assigned" };
+  }
+  if (data.isFromWebsite) {
+    return { label: "Website Enquiry", audit: "website", job: "website-lead-assigned" };
+  }
+  return { label: "Meta Lead Form", audit: "meta-lead-form", job: "meta-lead-form-assigned" };
+}
 
 export type CreateMetaLeadResult =
   | { created: true; leadId: string; assignedToId: string | null }
@@ -144,12 +161,28 @@ export async function findWhatsAppSourceId(
   return source?.id ?? null;
 }
 
+// Find Website lead source type
+export async function findWebsiteSourceId(
+  fastify: FastifyInstance,
+): Promise<string | null> {
+  const source = await fastify.prisma.leadSourceType.findFirst({
+    where: {
+      isActive: true,
+      name: { contains: "Website", mode: "insensitive" },
+    },
+    select: { id: true },
+  });
+  return source?.id ?? null;
+}
+
 // ── Main shared lead creation ──────────────────────────────────────────────
 
 export async function createLeadFromMeta(
   fastify: FastifyInstance,
   data: CreateMetaLeadInput,
 ): Promise<CreateMetaLeadResult> {
+  const channel = channelOf(data);
+
   // ── 1. Find default branch ──
   const branchId = await findDefaultBranch(fastify);
   if (!branchId) {
@@ -191,7 +224,7 @@ export async function createLeadFromMeta(
       const continuation = buildDuplicateContinuation({
         matchType: matchType as "PHONE" | "EMAIL" | "BOTH",
         incomingStudentName: data.studentName,
-        incomingSourceName: data.isFromWhatsApp ? "WhatsApp" : "Meta Lead Form",
+        incomingSourceName: channel.label,
         incomingCourseIds: data.courseId ? [data.courseId] : [],
         incomingFollowUpAt: null,
         originalLeadId,
@@ -251,6 +284,7 @@ export async function createLeadFromMeta(
           qualification: null,            // Meta form sends text; not mapping to enum
           remarks: data.remarks ?? null,
           sourceId: data.sourceId ?? null,
+          sourceOther: data.sourceOther ?? null,
           branchId,
           createdById: systemUserId,
           assignedToId: assignedToId ?? null,
@@ -282,7 +316,7 @@ export async function createLeadFromMeta(
           newValue: {
             studentName: data.studentName,
             phone: data.phone,
-            source: data.isFromWhatsApp ? "whatsapp" : "meta-lead-form",
+            source: channel.audit,
           },
         },
       });
@@ -290,7 +324,14 @@ export async function createLeadFromMeta(
       // Initial interaction log
       const initialNote = data.isFromWhatsApp
         ? `Lead created from WhatsApp. First message: ${(data.waFirstMessage ?? "(no text)").slice(0, 500)}`
-        : `Lead created from Meta Lead Form${data.metaAdName ? ` (Ad: ${data.metaAdName})` : ""}`;
+        : data.isFromWebsite
+          ? [
+              "Lead created from website enquiry form",
+              data.websiteCourse ? `Course interested: ${data.websiteCourse}` : null,
+              data.websitePageUrl ? `Page: ${data.websitePageUrl}` : null,
+              data.websiteUtm ? `Campaign: ${data.websiteUtm}` : null,
+            ].filter(Boolean).join("\n")
+          : `Lead created from Meta Lead Form${data.metaAdName ? ` (Ad: ${data.metaAdName})` : ""}`;
 
       await tx.interactionLog.create({
         data: {
@@ -331,12 +372,8 @@ export async function createLeadFromMeta(
       });
 
       if (counsellor) {
-        const jobName = data.isFromWhatsApp
-          ? "whatsapp-lead-assigned"
-          : "meta-lead-form-assigned";
-
         await fastify.queues[QUEUES.NOTIFICATIONS].add(
-          jobName,
+          channel.job,
           {
             to: counsellor.email,
             employeeName: counsellor.name,
@@ -349,6 +386,10 @@ export async function createLeadFromMeta(
             adName: data.metaAdName ?? null,
             // WhatsApp extras
             firstMessage: data.waFirstMessage ?? null,
+            // Website extras
+            courseName: data.websiteCourse ?? null,
+            message: data.isFromWebsite ? data.remarks ?? null : null,
+            pageUrl: data.websitePageUrl ?? null,
             timestamp: new Date().toISOString(),
           },
           { attempts: 3, backoff: { type: "exponential", delay: 3000 } },
@@ -371,7 +412,7 @@ export async function createLeadFromMeta(
   console.log("[meta-lead-create] Lead created", {
     leadId: lead.id,
     phone: data.phone,
-    source: data.isFromWhatsApp ? "whatsapp" : "meta-lead-form",
+    source: channel.audit,
     assignedTo: assignedToId,
   });
 

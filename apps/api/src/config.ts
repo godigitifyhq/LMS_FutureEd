@@ -66,6 +66,10 @@ export const config = {
     from: optionalEnv("SMTP_FROM", "FutureEd LMS <noreply@futureeducation.in>"),
   },
   frontendUrl: optionalEnv("FRONTEND_URL", "http://localhost:3000"),
+
+  // Shared secret for POST /leads/public/website-enquiry (x-api-key header).
+  // Empty = endpoint open (protected only by rate limit + honeypot).
+  websiteLeadKey: optionalEnv("WEBSITE_LEAD_KEY", ""),
   logoUrl: optionalEnv("LOGO_URL", ""),
 
   isProd: process.env["NODE_ENV"] === "production",

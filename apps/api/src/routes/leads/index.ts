@@ -15,6 +15,7 @@ import { overdueLeadsRoute } from "./overdue";
 import { leadFollowUpsRoute } from "./followups";
 import { bulkLeadRoutes } from "./bulk";
 import { publicDirectAdmissionRoute } from "./publicDirectAdmission";
+import { publicWebsiteEnquiryRoute } from "./publicWebsiteEnquiry";
 import { generateAdmissionPDF } from "../../services/admissionPDF";
 import { deleteFile, getStorageKeyFromUrl, uploadFile } from "../../storage";
 import {
@@ -83,6 +84,7 @@ export async function leadRoutes(fastify: FastifyInstance): Promise<void> {
   await fastify.register(leadFollowUpsRoute);
   await fastify.register(bulkLeadRoutes);
   await fastify.register(publicDirectAdmissionRoute);
+  await fastify.register(publicWebsiteEnquiryRoute);
 
   // GET /leads/check-duplicate?phone=XXXXXXXXXX
   // Exact-match lookup used by the new-lead form for instant duplicate detection.

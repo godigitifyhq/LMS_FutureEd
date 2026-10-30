@@ -11,6 +11,7 @@ import {
   sendAdmissionFormEmail,
   sendMetaLeadFormEmail,
   sendWhatsAppLeadEmail,
+  sendWebsiteLeadEmail,
   sendLeadCreatedEmail,
   sendDailyEmployeeReport,
   sendAdminDailyReport,
@@ -123,6 +124,19 @@ export function startNotificationWorker(connection: Redis): Worker {
             email: data.email ?? null,
             leadUrl: data.leadUrl,
             adName: data.adName ?? null,
+          });
+          break;
+
+        case "website-lead-assigned":
+          await sendWebsiteLeadEmail({
+            to: data.to,
+            employeeName: data.employeeName,
+            studentName: data.studentName,
+            phone: data.phone,
+            email: data.email ?? null,
+            courseName: data.courseName ?? null,
+            message: data.message ?? null,
+            leadUrl: data.leadUrl,
           });
           break;
 

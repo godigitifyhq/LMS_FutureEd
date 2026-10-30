@@ -369,6 +369,37 @@ export async function sendMetaLeadFormEmail(params: {
   });
 }
 
+export async function sendWebsiteLeadEmail(params: {
+  to: string;
+  employeeName: string;
+  studentName: string;
+  phone: string;
+  email: string | null;
+  courseName: string | null;
+  message: string | null;
+  leadUrl: string;
+}): Promise<void> {
+  await send({
+    to: params.to,
+    subject: `New Website Enquiry — ${params.studentName}`,
+    html: htmlWrapper(`
+      <div class="title">New Website Enquiry</div>
+      <div class="body">Hi ${esc(params.employeeName)}, a student submitted the enquiry form on the website and has been assigned to you.</div>
+      <div class="highlight">
+        <strong>Student:</strong> ${esc(params.studentName)}<br>
+        <strong>Phone:</strong> ${esc(params.phone)}<br>
+        ${params.email ? `<strong>Email:</strong> ${esc(params.email)}<br>` : ""}
+        ${params.courseName ? `<strong>Course:</strong> ${esc(params.courseName)}<br>` : ""}
+        ${params.message ? `<strong>Message:</strong> &ldquo;${esc(params.message)}&rdquo;` : ""}
+      </div>
+      <a href="${esc(params.leadUrl)}" class="btn" style="color:#ffffff;text-decoration:none;">View Lead</a>
+      <div class="body" style="color: #6b7280; font-size: 13px;">
+        Please call back promptly — website enquiries go cold fast.
+      </div>
+    `),
+  });
+}
+
 export async function sendWhatsAppLeadEmail(params: {
   to: string;
   employeeName: string;
